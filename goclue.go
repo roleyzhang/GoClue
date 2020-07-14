@@ -5,6 +5,8 @@ import "bufio"
 import "os"
 import "strings"
 
+
+
 func main() {
 	fmt.Printf("%s\n%s\n", "GoClue is a cloud disk console client.",
 		"Type \"login\" to sign up or \"h\" to get more help:")
@@ -41,6 +43,31 @@ func main() {
 
 }
 
+type command struct{
+	name string
+	param string
+	tip string
+}
+
+var allCommands []command;
+
+func init() {
+	fmt.Println("This will get called on main initialization")
+	// allCommands = make([]command, 0)
+	allCommands = []command{
+		{"q","","Quit"},
+		{"login","","Login to your account of net drive"},
+		{"mkdir","","Create directory"},
+		{"rm","","Delete directory or file, use \"-r\" for delete directory"},
+		{"cd","","change directory"},
+		{"..","","Exit current directory"},
+		{"d","","Download files use \"-r\" for download directory"},
+		{"ls","","list contents of current directory"},
+		{"u","","Upload directory or file, use \"-r\" for upload directory"},
+		{"h","","Print help"},
+		}
+}
+
 func runCommand(commandStr string) {
 	commandStr = strings.TrimSuffix(commandStr, "\n")
 	arrCommandStr := strings.Fields(commandStr)
@@ -65,7 +92,9 @@ func runCommand(commandStr string) {
 	case "u":
 		println("this is upload")
 	case "h":
-		println("this is help")
+		for _, cmd := range allCommands {
+			fmt.Printf("%6s: %s \n", cmd.name, cmd.tip)
+		}
 	default:
 		println("Please check your input or type \"h\" get help")
 	}
