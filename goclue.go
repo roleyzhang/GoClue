@@ -5,15 +5,16 @@ import (
 	"fmt"
 	"bufio"
 	"strings"
-	"io/ioutil"
+	// "io/ioutil"
 	"log"
 	"net/http"
 	"os"
 
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
+	// "golang.org/x/oauth2/google"
 	"google.golang.org/api/drive/v3"
+	"google.golang.org/api/option"
 )
 
 func main() {
@@ -113,20 +114,23 @@ func runCommand(commandStr string) {
 //------------
 
 func loginTest() {
-        b, err := ioutil.ReadFile("credentials.json")
-        if err != nil {
-                log.Fatalf("Unable to read client secret file: %v", err)
-        }
+        // b, err := ioutil.ReadFile("credentials.json")
+        // if err != nil {
+        //         log.Fatalf("Unable to read client secret file: %v", err)
+        // }
 
         // If modifying these scopes, delete your previously saved token.json.
         // config, err := google.ConfigFromJSON(b, drive.DriveMetadataReadonlyScope)
-		config, err := google.ConfigFromJSON(b, "https://www.googleapis.com/auth/drive")
-        if err != nil {
-                log.Fatalf("Unable to parse client secret file to config: %v", err)
-        }
-        client := getClient(config)
+		// config, err := google.ConfigFromJSON(b, "https://www.googleapis.com/auth/drive")
+        // if err != nil {
+        //         log.Fatalf("Unable to parse client secret file to config: %v", err)
+        // }
+        // client := getClient(config)
 
-        srv, err := drive.New(client)
+        // srv, err := drive.New(client)
+		ctx := context.Background()
+		srv, err := drive.NewService(ctx, option.WithCredentialsFile("credentials.json"))
+
         if err != nil {
                 log.Fatalf("Unable to retrieve Drive client: %v", err)
         }
