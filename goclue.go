@@ -1,18 +1,18 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
-	"bufio"
-	"strings"
-	// "io/ioutil"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
-	// "golang.org/x/oauth2/google"
+	"golang.org/x/oauth2/google"
 	"google.golang.org/api/drive/v3"
 	"google.golang.org/api/option"
 )
@@ -58,6 +58,9 @@ type command struct {
 }
 
 var allCommands []command
+var pageToken string
+var counter int
+var page map[int]string
 
 func init() {
 	fmt.Println("This will get called on main initialization")
@@ -73,7 +76,11 @@ func init() {
 		{"ls", "", "list contents of current directory"},
 		{"u", "", "Upload directory or file, use \"-r\" for upload directory"},
 		{"h", "", "Print help"},
+		{"n", "", "Next page"},
+		{"p", "", "Previous page"},
 	}
+
+	page = make(map[int]string)
 }
 
 func runCommand(commandStr string) {
@@ -86,7 +93,6 @@ func runCommand(commandStr string) {
 			os.Exit(0)
 		case "login":
 			println("this is login")
-			loginTest()
 		case "mkdir":
 			println("this is mkdir")
 		case "cd":
@@ -98,6 +104,7 @@ func runCommand(commandStr string) {
 		case "d":
 			println("this is download")
 		case "ls":
+			list()
 			println("this is ls")
 		case "u":
 			println("this is upload")
@@ -105,101 +112,200 @@ func runCommand(commandStr string) {
 			for _, cmd := range allCommands {
 				fmt.Printf("%6s: %s \n", cmd.name, cmd.tip)
 			}
+		case "n":
+			counter++
+			fmt.Printf("this is next page %d", counter)
+			if page[counter] == "" {
+				page[counter] = pageToken
+			}
+			next(counter)
+		case "p":
+			if counter > 0 {
+				counter--
+			}
+			pageToken = page[counter]
+			previous(counter)
+			fmt.Printf("this is previous page %d", counter)
 		default:
 			println("Please check your input or type \"h\" get help")
 		}
 
 	}
 }
+
 //------------
 
-func loginTest() {
-        // b, err := ioutil.ReadFile("credentials.json")
-        // if err != nil {
-        //         log.Fatalf("Unable to read client secret file: %v", err)
-        // }
+// list files of current directory
+func list() {
+	b, err := ioutil.ReadFile("credentials.json")
+	if err != nil {
+		log.Fatalf("Unable to read client secret file: %v", err)
+	}
 
-        // If modifying these scopes, delete your previously saved token.json.
-        // config, err := google.ConfigFromJSON(b, drive.DriveMetadataReadonlyScope)
-		// config, err := google.ConfigFromJSON(b, "https://www.googleapis.com/auth/drive")
-        // if err != nil {
-        //         log.Fatalf("Unable to parse client secret file to config: %v", err)
-        // }
-        // client := getClient(config)
+	// If modifying these scopes, delete your previously saved token.json.
+	config, err := google.ConfigFromJSON(b, drive.DriveMetadataReadonlyScope)
+	// config, err := google.ConfigFromJSON(b, "https://www.googleapis.com/auth/drive")
+	if err != nil {
+		log.Fatalf("Unable to parse client secret file to config: %v", err)
+	}
+	client := getClient(config)
 
-        // srv, err := drive.New(client)
-		ctx := context.Background()
-		srv, err := drive.NewService(ctx, option.WithCredentialsFile("credentials.json"))
+	// srv, err := drive.New(client)
+	ctx := context.Background()
+	srv, err := drive.NewService(ctx, option.WithHTTPClient(client))
 
-        if err != nil {
-                log.Fatalf("Unable to retrieve Drive client: %v", err)
-        }
+	if err != nil {
+		log.Fatalf("Unable to retrieve Drive client: %v", err)
+	}
 
-        r, err := srv.Files.List().PageSize(50).
-                Fields("nextPageToken, files(id, name)").Do()
-        if err != nil {
-                log.Fatalf("Unable to retrieve files: %v", err)
-        }
-        fmt.Println("Files:")
-        if len(r.Files) == 0 {
-                fmt.Println("No files found.")
-        } else {
-                for _, i := range r.Files {
-                        fmt.Printf("%s (%s)\n", i.Name, i.Id)
-                }
-        }
+	r, err := srv.Files.List().PageSize(20).
+		// r, err := srv.Files.List().
+		Fields("nextPageToken, files(id, name)").PageToken(pageToken).Do()
+	if err != nil {
+		log.Fatalf("Unable to retrieve files: %v", err)
+	}
+	fmt.Println("Files:")
+	if len(r.Files) == 0 {
+		fmt.Println("No files found.")
+	} else {
+		for _, i := range r.Files {
+			fmt.Printf("%s (%s)\n", i.Name, i.Id)
+		}
+	}
+	pageToken = r.NextPageToken
 }
+
+// show next page
+func next(counter int) {
+	b, err := ioutil.ReadFile("credentials.json")
+	if err != nil {
+		log.Fatalf("Unable to read client secret file: %v", err)
+	}
+
+	// If modifying these scopes, delete your previously saved token.json.
+	// config, err := google.ConfigFromJSON(b, drive.DriveMetadataReadonlyScope)
+	config, err := google.ConfigFromJSON(b, "https://www.googleapis.com/auth/drive")
+	if err != nil {
+		log.Fatalf("Unable to parse client secret file to config: %v", err)
+	}
+	client := getClient(config)
+
+	// srv, err := drive.New(client)
+	ctx := context.Background()
+	srv, err := drive.NewService(ctx, option.WithHTTPClient(client))
+
+	if err != nil {
+		log.Fatalf("Unable to retrieve Drive client: %v", err)
+	}
+
+	r, err := srv.Files.List().PageSize(20).
+		// r, err := srv.Files.List().
+		Fields("nextPageToken, files(id, name)").PageToken(page[counter]).Do()
+	if err != nil {
+		log.Fatalf("Unable to retrieve files: %v", err)
+	}
+	fmt.Println("Files:")
+	if len(r.Files) == 0 {
+		fmt.Println("No files found.")
+	} else {
+		for _, i := range r.Files {
+			fmt.Printf("%s (%s)\n", i.Name, i.Id)
+		}
+	}
+	pageToken = r.NextPageToken
+}
+
+// show previous page
+func previous(counter int) {
+	b, err := ioutil.ReadFile("credentials.json")
+	if err != nil {
+		log.Fatalf("Unable to read client secret file: %v", err)
+	}
+
+	// If modifying these scopes, delete your previously saved token.json.
+	// config, err := google.ConfigFromJSON(b, drive.DriveMetadataReadonlyScope)
+	config, err := google.ConfigFromJSON(b, "https://www.googleapis.com/auth/drive")
+	if err != nil {
+		log.Fatalf("Unable to parse client secret file to config: %v", err)
+	}
+	client := getClient(config)
+
+	// srv, err := drive.New(client)
+	ctx := context.Background()
+	srv, err := drive.NewService(ctx, option.WithHTTPClient(client))
+
+	if err != nil {
+		log.Fatalf("Unable to retrieve Drive client: %v", err)
+	}
+
+	r, err := srv.Files.List().PageSize(20).
+		// r, err := srv.Files.List().
+		Fields("nextPageToken, files(id, name)").PageToken(page[counter]).Do()
+	if err != nil {
+		log.Fatalf("Unable to retrieve files: %v", err)
+	}
+	fmt.Println("Files:")
+	if len(r.Files) == 0 {
+		fmt.Println("No files found.")
+	} else {
+		for _, i := range r.Files {
+			fmt.Printf("%s (%s)\n", i.Name, i.Id)
+		}
+	}
+	// pageToken = r.NextPageToken
+}
+
 // Retrieve a token, saves the token, then returns the generated client.
 func getClient(config *oauth2.Config) *http.Client {
-        // The file token.json stores the user's access and refresh tokens, and is
-        // created automatically when the authorization flow completes for the first
-        // time.
-        tokFile := "token.json"
-        tok, err := tokenFromFile(tokFile)
-        if err != nil {
-                tok = getTokenFromWeb(config)
-                saveToken(tokFile, tok)
-        }
-        return config.Client(context.Background(), tok)
+	// The file token.json stores the user's access and refresh tokens, and is
+	// created automatically when the authorization flow completes for the first
+	// time.
+	tokFile := "token.json"
+	tok, err := tokenFromFile(tokFile)
+	if err != nil {
+		tok = getTokenFromWeb(config)
+		saveToken(tokFile, tok)
+	}
+	return config.Client(context.Background(), tok)
 }
 
 // Request a token from the web, then returns the retrieved token.
 func getTokenFromWeb(config *oauth2.Config) *oauth2.Token {
-        authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
-        fmt.Printf("Go to the following link in your browser then type the "+
-                "authorization code: \n%v\n", authURL)
+	authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
+	fmt.Printf("Go to the following link in your browser then type the "+
+		"authorization code: \n%v\n", authURL)
 
-        var authCode string
-        if _, err := fmt.Scan(&authCode); err != nil {
-                log.Fatalf("Unable to read authorization code %v", err)
-        }
+	var authCode string
+	if _, err := fmt.Scan(&authCode); err != nil {
+		log.Fatalf("Unable to read authorization code %v", err)
+	}
 
-        tok, err := config.Exchange(context.TODO(), authCode)
-        if err != nil {
-                log.Fatalf("Unable to retrieve token from web %v", err)
-        }
-        return tok
+	tok, err := config.Exchange(context.TODO(), authCode)
+	if err != nil {
+		log.Fatalf("Unable to retrieve token from web %v", err)
+	}
+	return tok
 }
 
 // Retrieves a token from a local file.
 func tokenFromFile(file string) (*oauth2.Token, error) {
-        f, err := os.Open(file)
-        if err != nil {
-                return nil, err
-        }
-        defer f.Close()
-        tok := &oauth2.Token{}
-        err = json.NewDecoder(f).Decode(tok)
-        return tok, err
+	f, err := os.Open(file)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	tok := &oauth2.Token{}
+	err = json.NewDecoder(f).Decode(tok)
+	return tok, err
 }
 
 // Saves a token to a file path.
 func saveToken(path string, token *oauth2.Token) {
-        fmt.Printf("Saving credential file to: %s\n", path)
-        f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
-        if err != nil {
-                log.Fatalf("Unable to cache oauth token: %v", err)
-        }
-        defer f.Close()
-        json.NewEncoder(f).Encode(token)
+	fmt.Printf("Saving credential file to: %s\n", path)
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
+	if err != nil {
+		log.Fatalf("Unable to cache oauth token: %v", err)
+	}
+	defer f.Close()
+	json.NewEncoder(f).Encode(token)
 }
