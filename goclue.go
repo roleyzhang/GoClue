@@ -61,6 +61,7 @@ var allCommands []command
 var pageToken string
 var counter int
 var page map[int]string
+var service *drive.Service
 
 func init() {
 	fmt.Println("This will get called on main initialization")
@@ -92,6 +93,7 @@ func runCommand(commandStr string) {
 		case "q":
 			os.Exit(0)
 		case "login":
+			// service = startSrv()
 			println("this is login")
 		case "mkdir":
 			println("this is mkdir")
@@ -134,49 +136,8 @@ func runCommand(commandStr string) {
 }
 
 //------------
+func startSrv(scope string) *drive.Service {
 
-// list files of current directory
-func list() {
-	b, err := ioutil.ReadFile("credentials.json")
-	if err != nil {
-		log.Fatalf("Unable to read client secret file: %v", err)
-	}
-
-	// If modifying these scopes, delete your previously saved token.json.
-	config, err := google.ConfigFromJSON(b, drive.DriveMetadataReadonlyScope)
-	// config, err := google.ConfigFromJSON(b, "https://www.googleapis.com/auth/drive")
-	if err != nil {
-		log.Fatalf("Unable to parse client secret file to config: %v", err)
-	}
-	client := getClient(config)
-
-	// srv, err := drive.New(client)
-	ctx := context.Background()
-	srv, err := drive.NewService(ctx, option.WithHTTPClient(client))
-
-	if err != nil {
-		log.Fatalf("Unable to retrieve Drive client: %v", err)
-	}
-
-	r, err := srv.Files.List().PageSize(20).
-		// r, err := srv.Files.List().
-		Fields("nextPageToken, files(id, name)").PageToken(pageToken).Do()
-	if err != nil {
-		log.Fatalf("Unable to retrieve files: %v", err)
-	}
-	fmt.Println("Files:")
-	if len(r.Files) == 0 {
-		fmt.Println("No files found.")
-	} else {
-		for _, i := range r.Files {
-			fmt.Printf("%s (%s)\n", i.Name, i.Id)
-		}
-	}
-	pageToken = r.NextPageToken
-}
-
-// show next page
-func next(counter int) {
 	b, err := ioutil.ReadFile("credentials.json")
 	if err != nil {
 		log.Fatalf("Unable to read client secret file: %v", err)
@@ -184,7 +145,8 @@ func next(counter int) {
 
 	// If modifying these scopes, delete your previously saved token.json.
 	// config, err := google.ConfigFromJSON(b, drive.DriveMetadataReadonlyScope)
-	config, err := google.ConfigFromJSON(b, "https://www.googleapis.com/auth/drive")
+	// config, err := google.ConfigFromJSON(b, "https://www.googleapis.com/auth/drive")
+	config, err := google.ConfigFromJSON(b, scope)
 	if err != nil {
 		log.Fatalf("Unable to parse client secret file to config: %v", err)
 	}
@@ -193,14 +155,29 @@ func next(counter int) {
 	// srv, err := drive.New(client)
 	ctx := context.Background()
 	srv, err := drive.NewService(ctx, option.WithHTTPClient(client))
-
 	if err != nil {
 		log.Fatalf("Unable to retrieve Drive client: %v", err)
 	}
+	return srv
+}
 
-	r, err := srv.Files.List().PageSize(20).
-		// r, err := srv.Files.List().
-		Fields("nextPageToken, files(id, name)").PageToken(page[counter]).Do()
+// list files of current directory
+func list() {
+
+	// parameter setting
+	// -a show all type of items
+	// -d show all folder
+	// -l show linked folder
+	// -s show started folder
+	// r, err := srv.Files.List().
+	colorGreen := "\033[32m"
+	// colorCyan := "\033[36m"
+	r, err := startSrv(drive.DriveMetadataReadonlyScope).Files.List().
+		PageSize(200).
+		Fields("nextPageToken, files(id, name, mimeType)").
+		PageToken(pageToken).
+		Do()
+	
 	if err != nil {
 		log.Fatalf("Unable to retrieve files: %v", err)
 	}
@@ -209,7 +186,67 @@ func next(counter int) {
 		fmt.Println("No files found.")
 	} else {
 		for _, i := range r.Files {
-			fmt.Printf("%s (%s)\n", i.Name, i.Id)
+			if  i.MimeType == "application/vnd.google-apps.folder" {
+				// fmt.Printf("%s (%s)\n", i.Name, i.Id)
+				fmt.Println(string(colorGreen), i.Name, i.Id, i.MimeType, i.Shared, i.Starred)
+			}
+
+			// else{
+			// 	fmt.Println(string(colorCyan), i.Name, i.Id, i.MimeType)
+
+			// }
+			// fmt.Printf("%s (%s) %s \n", i.Name, i.Id, i.MimeType)
+		}
+	}
+	pageToken = r.NextPageToken
+
+	// r, err := startSrv(drive.DriveMetadataReadonlyScope).Files.Get("labels/starred").Do()
+}
+
+// show next page
+func next(counter int) {
+	// b, err := ioutil.ReadFile("credentials.json")
+	// if err != nil {
+	// 	log.Fatalf("Unable to read client secret file: %v", err)
+	// }
+
+	// // If modifying these scopes, delete your previously saved token.json.
+	// // config, err := google.ConfigFromJSON(b, drive.DriveMetadataReadonlyScope)
+	// config, err := google.ConfigFromJSON(b, "https://www.googleapis.com/auth/drive")
+	// if err != nil {
+	// 	log.Fatalf("Unable to parse client secret file to config: %v", err)
+	// }
+	// client := getClient(config)
+
+	// // srv, err := drive.New(client)
+	// ctx := context.Background()
+	// srv, err := drive.NewService(ctx, option.WithHTTPClient(client))
+
+	// if err != nil {
+	// 	log.Fatalf("Unable to retrieve Drive client: %v", err)
+	// }
+
+	colorGreen := "\033[32m"
+	colorCyan := "\033[36m"
+	r, err := startSrv(drive.DriveMetadataReadonlyScope).Files.List().PageSize(20).
+		// r, err := srv.Files.List().
+		Fields("nextPageToken, files(id, name, mimeType)").PageToken(page[counter]).Do()
+	if err != nil {
+		log.Fatalf("Unable to retrieve files: %v", err)
+	}
+	fmt.Println("Files:")
+	if len(r.Files) == 0 {
+		fmt.Println("No files found.")
+	} else {
+		for _, i := range r.Files {
+			// fmt.Printf("%s (%s)\n", i.Name, i.Id)
+			if  i.MimeType == "application/vnd.google-apps.folder" {
+				// fmt.Printf("%s (%s)\n", i.Name, i.Id)
+				fmt.Println(string(colorGreen), i.Name, i.Id)
+			}else{
+				fmt.Println(string(colorCyan), i.Name, i.Id)
+
+			}
 		}
 	}
 	pageToken = r.NextPageToken
@@ -217,30 +254,32 @@ func next(counter int) {
 
 // show previous page
 func previous(counter int) {
-	b, err := ioutil.ReadFile("credentials.json")
-	if err != nil {
-		log.Fatalf("Unable to read client secret file: %v", err)
-	}
+	// b, err := ioutil.ReadFile("credentials.json")
+	// if err != nil {
+	// 	log.Fatalf("Unable to read client secret file: %v", err)
+	// }
 
-	// If modifying these scopes, delete your previously saved token.json.
-	// config, err := google.ConfigFromJSON(b, drive.DriveMetadataReadonlyScope)
-	config, err := google.ConfigFromJSON(b, "https://www.googleapis.com/auth/drive")
-	if err != nil {
-		log.Fatalf("Unable to parse client secret file to config: %v", err)
-	}
-	client := getClient(config)
+	// // If modifying these scopes, delete your previously saved token.json.
+	// // config, err := google.ConfigFromJSON(b, drive.DriveMetadataReadonlyScope)
+	// config, err := google.ConfigFromJSON(b, "https://www.googleapis.com/auth/drive")
+	// if err != nil {
+	// 	log.Fatalf("Unable to parse client secret file to config: %v", err)
+	// }
+	// client := getClient(config)
 
-	// srv, err := drive.New(client)
-	ctx := context.Background()
-	srv, err := drive.NewService(ctx, option.WithHTTPClient(client))
+	// // srv, err := drive.New(client)
+	// ctx := context.Background()
+	// srv, err := drive.NewService(ctx, option.WithHTTPClient(client))
 
-	if err != nil {
-		log.Fatalf("Unable to retrieve Drive client: %v", err)
-	}
+	// if err != nil {
+	// 	log.Fatalf("Unable to retrieve Drive client: %v", err)
+	// }
 
-	r, err := srv.Files.List().PageSize(20).
+	colorGreen := "\033[32m"
+	colorCyan := "\033[36m"
+	r, err := startSrv(drive.DriveMetadataReadonlyScope).Files.List().PageSize(20).
 		// r, err := srv.Files.List().
-		Fields("nextPageToken, files(id, name)").PageToken(page[counter]).Do()
+		Fields("nextPageToken, files(id, name, mimeType)").PageToken(page[counter]).Do()
 	if err != nil {
 		log.Fatalf("Unable to retrieve files: %v", err)
 	}
@@ -249,7 +288,14 @@ func previous(counter int) {
 		fmt.Println("No files found.")
 	} else {
 		for _, i := range r.Files {
-			fmt.Printf("%s (%s)\n", i.Name, i.Id)
+			// fmt.Printf("%s (%s)\n", i.Name, i.Id)
+			if  i.MimeType == "application/vnd.google-apps.folder" {
+				// fmt.Printf("%s (%s)\n", i.Name, i.Id)
+				fmt.Println(string(colorGreen), i.Name, i.Id)
+			}else{
+				fmt.Println(string(colorCyan), i.Name, i.Id)
+
+			}
 		}
 	}
 	// pageToken = r.NextPageToken
