@@ -61,7 +61,7 @@ var allCommands []command
 var pageToken string
 var counter int
 var page map[int]string
-var service *drive.Service
+// var service *drive.Service
 
 func init() {
 	fmt.Println("This will get called on main initialization")
@@ -112,7 +112,7 @@ func runCommand(commandStr string) {
 			println("this is upload")
 		case "h":
 			for _, cmd := range allCommands {
-				fmt.Printf("%6s: %s \n", cmd.name, cmd.tip)
+				fmt.Printf("%6s: %s %s \n", cmd.name, cmd.param, cmd.tip)
 			}
 		case "n":
 			counter++
@@ -176,8 +176,10 @@ func list() {
 		PageSize(200).
 		Fields("nextPageToken, files(id, name, mimeType)").
 		PageToken(pageToken).
+		OrderBy("starred, createdTime").
+		// Corpora("default").
 		Do()
-	
+
 	if err != nil {
 		log.Fatalf("Unable to retrieve files: %v", err)
 	}
@@ -188,7 +190,7 @@ func list() {
 		for _, i := range r.Files {
 			if  i.MimeType == "application/vnd.google-apps.folder" {
 				// fmt.Printf("%s (%s)\n", i.Name, i.Id)
-				fmt.Println(string(colorGreen), i.Name, i.Id, i.MimeType, i.Shared, i.Starred)
+				fmt.Println(string(colorGreen), i.Name, i.Id, i.MimeType )
 			}
 
 			// else{
@@ -353,5 +355,8 @@ func saveToken(path string, token *oauth2.Token) {
 		log.Fatalf("Unable to cache oauth token: %v", err)
 	}
 	defer f.Close()
-	json.NewEncoder(f).Encode(token)
+	err = json.NewEncoder(f).Encode(token)
+	if err != nil {
+		log.Fatalf("Json encode error: %v", err)
+	}
 }
