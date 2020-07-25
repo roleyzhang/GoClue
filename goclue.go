@@ -61,6 +61,7 @@ var allCommands []command
 var pageToken string
 var counter int
 var page map[int]string
+
 // var service *drive.Service
 
 func init() {
@@ -106,7 +107,7 @@ func runCommand(commandStr string) {
 		case "d":
 			println("this is download")
 		case "ls":
-			list()
+			list(arrCommandStr)
 			println("this is ls")
 		case "u":
 			println("this is upload")
@@ -151,7 +152,7 @@ func startSrv(scope string) *drive.Service {
 		log.Fatalf("Unable to parse client secret file to config: %v", err)
 	}
 	client := getClient(config)
-
+	// client.Get(url string)
 	// srv, err := drive.New(client)
 	ctx := context.Background()
 	srv, err := drive.NewService(ctx, option.WithHTTPClient(client))
@@ -162,7 +163,7 @@ func startSrv(scope string) *drive.Service {
 }
 
 // list files of current directory
-func list() {
+func list(cmds []string) {
 
 	// parameter setting
 	// -a show all type of items
@@ -170,13 +171,39 @@ func list() {
 	// -l show linked folder
 	// -s show started folder
 	// r, err := srv.Files.List().
+	if len(cmds) >= 2 {
+		switch cmds[1] {
+		case "-d", "--d":
+			println("this is folder")
+		case "-l", "--l":
+			println("this is link")
+		case "-s", "--s":
+			println("this is star")
+		default:
+			println("this is all")
+		}
+	} else {
+		baseQuery("")
+	}
+}
+
+// base query
+// name ...
+func baseQuery(condition string) {
 	colorGreen := "\033[32m"
-	// colorCyan := "\033[36m"
+	colorCyan := "\033[36m"
 	r, err := startSrv(drive.DriveMetadataReadonlyScope).Files.List().
+		// This should testing by change the authorize token
+	// r, err := startSrv("https://www.googleapis.com/auth/drive.photos.readonly").Files.List().
+		Spaces("drive").
+		// Q("mimeType='image/jpeg'").
+		// Q("starred").Q("name='IMG_0004.JPG'").
+		// Q("starred or name='IMG_0004.JPG'").
 		PageSize(200).
 		Fields("nextPageToken, files(id, name, mimeType)").
 		PageToken(pageToken).
-		OrderBy("starred, createdTime").
+		// OrderBy("starred, createdTime").
+		OrderBy(condition).
 		// Corpora("default").
 		Do()
 
@@ -188,21 +215,16 @@ func list() {
 		fmt.Println("No files found.")
 	} else {
 		for _, i := range r.Files {
-			if  i.MimeType == "application/vnd.google-apps.folder" {
+			if i.MimeType == "application/vnd.google-apps.folder" {
 				// fmt.Printf("%s (%s)\n", i.Name, i.Id)
-				fmt.Println(string(colorGreen), i.Name, i.Id, i.MimeType )
+				fmt.Println(string(colorGreen), i.Name, i.Id, i.MimeType)
+			} else {
+				fmt.Println(string(colorCyan), i.Name, i.Id, i.MimeType)
 			}
-
-			// else{
-			// 	fmt.Println(string(colorCyan), i.Name, i.Id, i.MimeType)
-
-			// }
 			// fmt.Printf("%s (%s) %s \n", i.Name, i.Id, i.MimeType)
 		}
 	}
 	pageToken = r.NextPageToken
-
-	// r, err := startSrv(drive.DriveMetadataReadonlyScope).Files.Get("labels/starred").Do()
 }
 
 // show next page
@@ -242,10 +264,10 @@ func next(counter int) {
 	} else {
 		for _, i := range r.Files {
 			// fmt.Printf("%s (%s)\n", i.Name, i.Id)
-			if  i.MimeType == "application/vnd.google-apps.folder" {
+			if i.MimeType == "application/vnd.google-apps.folder" {
 				// fmt.Printf("%s (%s)\n", i.Name, i.Id)
 				fmt.Println(string(colorGreen), i.Name, i.Id)
-			}else{
+			} else {
 				fmt.Println(string(colorCyan), i.Name, i.Id)
 
 			}
@@ -291,10 +313,10 @@ func previous(counter int) {
 	} else {
 		for _, i := range r.Files {
 			// fmt.Printf("%s (%s)\n", i.Name, i.Id)
-			if  i.MimeType == "application/vnd.google-apps.folder" {
+			if i.MimeType == "application/vnd.google-apps.folder" {
 				// fmt.Printf("%s (%s)\n", i.Name, i.Id)
 				fmt.Println(string(colorGreen), i.Name, i.Id)
-			}else{
+			} else {
 				fmt.Println(string(colorCyan), i.Name, i.Id)
 
 			}
