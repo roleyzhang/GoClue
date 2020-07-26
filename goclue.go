@@ -61,6 +61,7 @@ var allCommands []command
 var pageToken string
 var counter int
 var page map[int]string
+var qString string
 
 // var service *drive.Service
 
@@ -108,7 +109,7 @@ func runCommand(commandStr string) {
 			println("this is download")
 		case "ls":
 			list(arrCommandStr)
-			println("this is ls")
+			// println("this is ls")
 		case "u":
 			println("this is upload")
 		case "h":
@@ -117,18 +118,20 @@ func runCommand(commandStr string) {
 			}
 		case "n":
 			counter++
-			fmt.Printf("this is next page %d", counter)
+			// fmt.Printf("counter %d", counter)
 			if page[counter] == "" {
 				page[counter] = pageToken
 			}
 			next(counter)
+			fmt.Printf("page %d", counter)
 		case "p":
 			if counter > 0 {
 				counter--
 			}
+			// fmt.Printf("counter %d", counter)
 			pageToken = page[counter]
 			previous(counter)
-			fmt.Printf("this is previous page %d", counter)
+			fmt.Printf("page %d", counter)
 		default:
 			println("Please check your input or type \"h\" get help")
 		}
@@ -174,37 +177,62 @@ func list(cmds []string) {
 	if len(cmds) >= 2 {
 		switch cmds[1] {
 		case "-d", "--d":
-			println("this is folder")
+			qString = "mimeType = 'application/vnd.google-apps.folder'"
+			counter = 0
+			clearMap()
+			userQuery()
 		case "-l", "--l":
-			println("this is link")
+			qString = "mimeType = 'application/vnd.google-apps.shortcut'"
+			counter = 0
+			clearMap()
+			userQuery()
 		case "-s", "--s":
-			println("this is star")
+			qString = "starred"
+			counter = 0
+			clearMap()
+			userQuery()
 		default:
-			println("this is all")
+			qString = ""
+			println("this is all ", qString)
+			counter = 0
+			clearMap()
+			userQuery()
 		}
 	} else {
-		baseQuery("")
+		counter = 0
+		clearMap()
+		userQuery()
 	}
 }
 
-// base query
-// name ...
-func baseQuery(condition string) {
+// clear page map for new query
+// clearMap ...
+func clearMap()  {
+	for k := range page {
+		delete(page, k)
+	}
+}
+
+// print the request result
+func showResult(counter int, scope string) *drive.FileList {
+	// This should testing by change the authorize token
+	// r, err := startSrv("https://www.googleapis.com/auth/drive.photos.readonly").Files.List().
+	// Spaces("drive").
+	// Q("mimeType = 'application/vnd.google-apps.shortcut' or starred").
+	// Q("starred").Q("name='IMG_0004.JPG'").
+	// Q("starred or name='IMG_0004.JPG'").
+	// OrderBy(condition).
+	// Corpora("default").
+	// fmt.Println("Result start: ", page[counter], qString, counter, scope)
 	colorGreen := "\033[32m"
 	colorCyan := "\033[36m"
-	r, err := startSrv(drive.DriveMetadataReadonlyScope).Files.List().
-		// This should testing by change the authorize token
-	// r, err := startSrv("https://www.googleapis.com/auth/drive.photos.readonly").Files.List().
-		Spaces("drive").
-		// Q("mimeType='image/jpeg'").
-		// Q("starred").Q("name='IMG_0004.JPG'").
-		// Q("starred or name='IMG_0004.JPG'").
-		PageSize(200).
-		Fields("nextPageToken, files(id, name, mimeType)").
-		PageToken(pageToken).
-		// OrderBy("starred, createdTime").
-		OrderBy(condition).
-		// Corpora("default").
+
+	r, err := startSrv(scope).Files.List().
+		Q(qString).
+		PageSize(40).
+		Fields("nextPageToken, files(id, name, mimeType, owners)").
+		PageToken(page[counter]).
+		OrderBy("createdTime").
 		Do()
 
 	if err != nil {
@@ -216,113 +244,31 @@ func baseQuery(condition string) {
 	} else {
 		for _, i := range r.Files {
 			if i.MimeType == "application/vnd.google-apps.folder" {
-				// fmt.Printf("%s (%s)\n", i.Name, i.Id)
-				fmt.Println(string(colorGreen), i.Name, i.Id, i.MimeType)
+				fmt.Println(string(colorGreen), i.Name, i.Id, i.MimeType, i.Owners[0].DisplayName)
 			} else {
-				fmt.Println(string(colorCyan), i.Name, i.Id, i.MimeType)
+				fmt.Println(string(colorCyan), i.Name, i.Id, i.MimeType, i.Owners[0].DisplayName)
 			}
-			// fmt.Printf("%s (%s) %s \n", i.Name, i.Id, i.MimeType)
 		}
 	}
+	return r
+}
+
+// base query
+// name ...
+func userQuery() {
+	r := showResult(counter, drive.DriveMetadataReadonlyScope)
 	pageToken = r.NextPageToken
 }
 
 // show next page
 func next(counter int) {
-	// b, err := ioutil.ReadFile("credentials.json")
-	// if err != nil {
-	// 	log.Fatalf("Unable to read client secret file: %v", err)
-	// }
-
-	// // If modifying these scopes, delete your previously saved token.json.
-	// // config, err := google.ConfigFromJSON(b, drive.DriveMetadataReadonlyScope)
-	// config, err := google.ConfigFromJSON(b, "https://www.googleapis.com/auth/drive")
-	// if err != nil {
-	// 	log.Fatalf("Unable to parse client secret file to config: %v", err)
-	// }
-	// client := getClient(config)
-
-	// // srv, err := drive.New(client)
-	// ctx := context.Background()
-	// srv, err := drive.NewService(ctx, option.WithHTTPClient(client))
-
-	// if err != nil {
-	// 	log.Fatalf("Unable to retrieve Drive client: %v", err)
-	// }
-
-	colorGreen := "\033[32m"
-	colorCyan := "\033[36m"
-	r, err := startSrv(drive.DriveMetadataReadonlyScope).Files.List().PageSize(20).
-		// r, err := srv.Files.List().
-		Fields("nextPageToken, files(id, name, mimeType)").PageToken(page[counter]).Do()
-	if err != nil {
-		log.Fatalf("Unable to retrieve files: %v", err)
-	}
-	fmt.Println("Files:")
-	if len(r.Files) == 0 {
-		fmt.Println("No files found.")
-	} else {
-		for _, i := range r.Files {
-			// fmt.Printf("%s (%s)\n", i.Name, i.Id)
-			if i.MimeType == "application/vnd.google-apps.folder" {
-				// fmt.Printf("%s (%s)\n", i.Name, i.Id)
-				fmt.Println(string(colorGreen), i.Name, i.Id)
-			} else {
-				fmt.Println(string(colorCyan), i.Name, i.Id)
-
-			}
-		}
-	}
+	r := showResult(counter, drive.DriveMetadataReadonlyScope)
 	pageToken = r.NextPageToken
 }
 
 // show previous page
 func previous(counter int) {
-	// b, err := ioutil.ReadFile("credentials.json")
-	// if err != nil {
-	// 	log.Fatalf("Unable to read client secret file: %v", err)
-	// }
-
-	// // If modifying these scopes, delete your previously saved token.json.
-	// // config, err := google.ConfigFromJSON(b, drive.DriveMetadataReadonlyScope)
-	// config, err := google.ConfigFromJSON(b, "https://www.googleapis.com/auth/drive")
-	// if err != nil {
-	// 	log.Fatalf("Unable to parse client secret file to config: %v", err)
-	// }
-	// client := getClient(config)
-
-	// // srv, err := drive.New(client)
-	// ctx := context.Background()
-	// srv, err := drive.NewService(ctx, option.WithHTTPClient(client))
-
-	// if err != nil {
-	// 	log.Fatalf("Unable to retrieve Drive client: %v", err)
-	// }
-
-	colorGreen := "\033[32m"
-	colorCyan := "\033[36m"
-	r, err := startSrv(drive.DriveMetadataReadonlyScope).Files.List().PageSize(20).
-		// r, err := srv.Files.List().
-		Fields("nextPageToken, files(id, name, mimeType)").PageToken(page[counter]).Do()
-	if err != nil {
-		log.Fatalf("Unable to retrieve files: %v", err)
-	}
-	fmt.Println("Files:")
-	if len(r.Files) == 0 {
-		fmt.Println("No files found.")
-	} else {
-		for _, i := range r.Files {
-			// fmt.Printf("%s (%s)\n", i.Name, i.Id)
-			if i.MimeType == "application/vnd.google-apps.folder" {
-				// fmt.Printf("%s (%s)\n", i.Name, i.Id)
-				fmt.Println(string(colorGreen), i.Name, i.Id)
-			} else {
-				fmt.Println(string(colorCyan), i.Name, i.Id)
-
-			}
-		}
-	}
-	// pageToken = r.NextPageToken
+	showResult(counter, drive.DriveMetadataReadonlyScope)
 }
 
 // Retrieve a token, saves the token, then returns the generated client.
