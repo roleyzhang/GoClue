@@ -4,6 +4,7 @@ go 1.14
 
 require (
 	github.com/bradleyfalzon/revgrep v0.0.0-20170920092642-c04006dc3307 // indirect
+	github.com/c-bata/go-prompt v0.2.3
 	github.com/cweill/gotests v1.5.3 // indirect
 	github.com/davidrjenni/reftools v0.0.0-20191222082827-65925cf01315 // indirect
 	github.com/go-xmlfmt/xmlfmt v0.0.0-20191208150333-d5b6f63a941b // indirect
@@ -35,6 +36,7 @@ require (
 	github.com/pelletier/go-toml v1.8.0 // indirect
 	github.com/peterh/liner v1.2.0 // indirect
 	github.com/phayes/checkstyle v0.0.0-20170904204023-bfd46e6a821d // indirect
+	github.com/pkg/term v0.0.0-20200520122047-c3ffed290a03 // indirect
 	github.com/quasilyte/go-ruleguard v0.1.2 // indirect
 	github.com/quasilyte/regex/syntax v0.0.0-20200419152657-af9db7f4a3ab // indirect
 	github.com/remyoudompheng/go-dbus v0.0.0-20121104212943-b7232d34b1d5 // indirect

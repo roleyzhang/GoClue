@@ -1,7 +1,7 @@
 package main
 
 import (
-	"bufio"
+	// "bufio"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -15,42 +15,60 @@ import (
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/drive/v3"
 	"google.golang.org/api/option"
+	"github.com/c-bata/go-prompt"
 )
 
 func main() {
-	fmt.Printf("%s\n%s\n", "GoClue is a cloud disk console client.",
-		"Type \"login\" to sign up or \"h\" to get more help:")
-	// var guessColor string
-	// const favColor = "blue"
-	reader := bufio.NewReader(os.Stdin)
-
-	for {
-		fmt.Print("> ")
-		cmdString, err := reader.ReadString('\n')
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-		}
-
-		runCommand(cmdString)
-		// err = runCommand(cmdString)
-		// if err != nil {
-		// 	fmt.Fprintln(os.Stderr, err)
-		// }
-
-		// fmt.Println("Guess my favorite color:")
-		// if _, err := fmt.Scanf("%s", &guessColor); err != nil {
-		// 	fmt.Printf("%s\n", err)
-		// 	return
-		// }
-		// if favColor == guessColor {
-		// 	fmt.Printf("%q is my favorite color!", favColor)
-		// 	return
-		// }
-		// fmt.Printf("Sorry, %q is not my favorite color. Guess again. \n", guessColor)
+	//----------------------TESTING GO-PROMPT
+	for{
+		fmt.Println("Please select table.")
+		t := prompt.Input("> ", completer)
+		fmt.Println("You selected " + t)
 	}
+
+	//-----------------------THE OLD ONE
+	// fmt.Printf("%s\n%s\n", "GoClue is a cloud disk console client.",
+	// 	"Type \"login\" to sign up or \"h\" to get more help:")
+	// // var guessColor string
+	// // const favColor = "blue"
+	// reader := bufio.NewReader(os.Stdin)
+
+	// for {
+	// 	fmt.Print("> ")
+	// 	cmdString, err := reader.ReadString('\n')
+	// 	if err != nil {
+	// 		fmt.Fprintln(os.Stderr, err)
+	// 	}
+
+	// 	runCommand(cmdString)
+	// 	// err = runCommand(cmdString)
+	// 	// if err != nil {
+	// 	// 	fmt.Fprintln(os.Stderr, err)
+	// 	// }
+
+	// 	// fmt.Println("Guess my favorite color:")
+	// 	// if _, err := fmt.Scanf("%s", &guessColor); err != nil {
+	// 	// 	fmt.Printf("%s\n", err)
+	// 	// 	return
+	// 	// }
+	// 	// if favColor == guessColor {
+	// 	// 	fmt.Printf("%q is my favorite color!", favColor)
+	// 	// 	return
+	// 	// }
+	// 	// fmt.Printf("Sorry, %q is not my favorite color. Guess again. \n", guessColor)
+	// }
 
 }
 
+func completer(d prompt.Document) []prompt.Suggest {
+	s := []prompt.Suggest{
+		{Text: "users", Description: "Store the username and age"},
+		{Text: "articles", Description: "Store the article text posted by user"},
+		{Text: "comments", Description: "Store the text commented to articles"},
+	}
+	return prompt.FilterHasPrefix(s, d.GetWordBeforeCursor(), true)
+}
+//--------------------------------------------
 type command struct {
 	name  string
 	param string
@@ -76,7 +94,12 @@ func init() {
 		{"cd", "", "change directory"},
 		{"..", "", "Exit current directory"},
 		{"d", "", "Download files use \"-r\" for download directory"},
-		{"ls", "", "list contents of current directory"},
+		{"ls", "-t filter by file type \n" +
+			"\t-n list by name \n" +
+			"\t-d list all folder \n" +
+			"\t-l list linked folder \n" +
+			"\t-s list starred folder \n",
+			"\tlist contents "},
 		{"u", "", "Upload directory or file, use \"-r\" for upload directory"},
 		{"h", "", "Print help"},
 		{"n", "", "Next page"},
@@ -173,7 +196,8 @@ func list(cmds []string) {
 	// -d show all folder
 	// -l show linked folder
 	// -s show started folder
-	// r, err := srv.Files.List().
+	// -t use file type to filter result
+	// -n show by name
 	if len(cmds) >= 2 {
 		switch cmds[1] {
 		case "-d", "--d":
@@ -188,6 +212,20 @@ func list(cmds []string) {
 			userQuery()
 		case "-s", "--s":
 			qString = "starred"
+			counter = 0
+			clearMap()
+			userQuery()
+		case "-t", "--t":
+			if len(cmds) == 3 {
+				qString = "mimeType = '" + cmds[2] + "'"
+			}
+			counter = 0
+			clearMap()
+			userQuery()
+		case "-n", "--n":
+			if len(cmds) == 3 {
+				qString = "name contains '" + cmds[2] + "'"
+			}
 			counter = 0
 			clearMap()
 			userQuery()
@@ -207,7 +245,7 @@ func list(cmds []string) {
 
 // clear page map for new query
 // clearMap ...
-func clearMap()  {
+func clearMap() {
 	for k := range page {
 		delete(page, k)
 	}
@@ -229,10 +267,10 @@ func showResult(counter int, scope string) *drive.FileList {
 
 	r, err := startSrv(scope).Files.List().
 		Q(qString).
-		PageSize(40).
+		PageSize(200).
 		Fields("nextPageToken, files(id, name, mimeType, owners)").
 		PageToken(page[counter]).
-		OrderBy("createdTime").
+		OrderBy("modifiedTime").
 		Do()
 
 	if err != nil {
