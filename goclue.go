@@ -10,22 +10,24 @@ import (
 	"os"
 	"strings"
 
+	"github.com/c-bata/go-prompt"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/drive/v3"
 	"google.golang.org/api/option"
-	"github.com/c-bata/go-prompt"
 )
 
 func main() {
-	//----------------------TESTING GO-PROMPT
-	for{
-		fmt.Println("Please select table.")
-		t := prompt.Input("> ", completer)
-		fmt.Println("You selected " + t)
-	}
-
+	fmt.Printf("%s\n%s\n", "GoClue is a cloud disk console client.",
+		"Type \"login\" to sign up or \"h\" to get more help:")
+	p := prompt.New(
+		executor,
+		completer,
+		prompt.OptionPrefix(">>> "),
+		prompt.OptionTitle("GOCULE"),
+	)
+	p.Run()
 	//-----------------------THE OLD ONE
 	// fmt.Printf("%s\n%s\n", "GoClue is a cloud disk console client.",
 	// 	"Type \"login\" to sign up or \"h\" to get more help:")
@@ -60,14 +62,97 @@ func main() {
 
 }
 
-func completer(d prompt.Document) []prompt.Suggest {
-	s := []prompt.Suggest{
-		{Text: "users", Description: "Store the username and age"},
-		{Text: "articles", Description: "Store the article text posted by user"},
-		{Text: "comments", Description: "Store the text commented to articles"},
-	}
-	return prompt.FilterHasPrefix(s, d.GetWordBeforeCursor(), true)
+func executor(in string) {
+	runCommand(in)
+	h := prompt.NewHistory()
+	h.Add(in)
 }
+
+func completer(in prompt.Document) []prompt.Suggest {
+	// cmdStr = strings.TrimSuffix(cmdStr, "\n")
+	arrCommandStr := strings.Fields(in.TextBeforeCursor())
+	// fmt.Println("Your input: " , arrCommandStr )
+	s := []prompt.Suggest{
+		{Text: "q", Description: "Quit"},
+		{Text: "login", Description: "Login to your account of net drive"},
+		{Text: "mkdir", Description: "Create directory"},
+		{Text: "rm", Description: "Delete directory or file, use \"-r\" for delete directory"},
+		{Text: "cd", Description: "change directory"},
+		{Text: "..", Description: "Exit current directory"},
+		{Text: "d", Description: "Download files use \"-r\" for download directory"},
+		{Text: "ls", Description: "list contents "},
+		{Text: "u", Description: "Upload directory or file, use \"-r\" for upload directory"},
+		{Text: "h", Description: "Print help"},
+		{Text: "n", Description: "Next page"},
+		{Text: "p", Description: "Previous page"},
+	}
+	if len(arrCommandStr) == 2 {
+		s = []prompt.Suggest{
+			{Text: "-t", Description: " filter by file type"},
+			{Text: "-n", Description: " list by name"},
+			{Text: "-d", Description: " list all folder"},
+			{Text: "-l", Description: " list linked folder"},
+			{Text: "-s", Description: " list starred folder"},
+		}
+		// application/vnd.google-apps.audio	
+		// application/vnd.google-apps.document	Google Docs
+		// application/vnd.google-apps.drive-sdk	3rd party shortcut
+		// application/vnd.google-apps.drawing	Google Drawing
+		// application/vnd.google-apps.file	Google Drive file
+		// application/vnd.google-apps.folder	Google Drive folder
+		// application/vnd.google-apps.form	Google Forms
+		// application/vnd.google-apps.fusiontable	Google Fusion Tables
+		// application/vnd.google-apps.map	Google My Maps
+		// application/vnd.google-apps.photo	
+		// application/vnd.google-apps.presentation	Google Slides
+		// application/vnd.google-apps.script	Google Apps Scripts
+		// application/vnd.google-apps.shortcut	Shortcut
+		// application/vnd.google-apps.site	Google Sites
+		// application/vnd.google-apps.spreadsheet	Google Sheets
+		// application/vnd.google-apps.unknown	
+		// application/vnd.google-apps.video
+		switch arrCommandStr[1] {
+		case "-t", "--t":
+			s = []prompt.Suggest{
+				{Text: "application/vnd.google-apps.document", Description: " filter by file type"},
+				{Text: "application/pdf", Description: " list by name"},
+				{Text: "application/vnd.google-apps.form", Description: " list all folder"},
+				{Text: "application/msword", Description: " list linked folder"},
+				{Text: "application/vnd.google-apps.spreadsheet", Description: " list starred folder"},
+				{Text: "application/vnd.ms-excel", Description: " list starred folder"},
+				{Text: "text/html", Description: " list starred folder"},
+				{Text: "image/jpeg", Description: " list starred folder"},
+				{Text: "image/gif", Description: " list starred folder"},
+				{Text: "application/x-shockwave-flash", Description: " list starred folder"},
+				{Text: "application/x-javascript", Description: " list starred folder"},
+				{Text: "text/plain", Description: " list starred folder"},
+				{Text: "application/x-httpd-php", Description: " list starred folder"},
+				{Text: "text/css", Description: " list starred folder"},
+				{Text: "video/mp4", Description: " list starred folder"},
+				{Text: "application/vnd.google-apps.drawing", Description: " list starred folder"},
+				{Text: "appt", Description: " list starred folder"},
+			}
+		}
+	}
+	// else if len(arrCommandStr) == 3 {
+	// 	s = []prompt.Suggest{
+	// 		{Text: "q", Description: "Quit"},
+	// 		{Text: "login", Description: "Login to your account of net drive"},
+	// 		{Text: "mkdir", Description: "Create directory"},
+	// 		{Text: "rm", Description: "Delete directory or file, use \"-r\" for delete directory"},
+	// 		{Text: "cd", Description: "change directory"},
+	// 		{Text: "..", Description: "Exit current directory"},
+	// 		{Text: "d", Description: "Download files use \"-r\" for download directory"},
+	// 		{Text: "ls", Description: "\tlist contents "},
+	// 		{Text: "u", Description: "Upload directory or file, use \"-r\" for upload directory"},
+	// 		{Text: "h", Description: "Print help"},
+	// 		{Text: "n", Description: "Next page"},
+	// 		{Text: "p", Description: "Previous page"},
+	// 	}
+	// }
+	return prompt.FilterHasPrefix(s, in.GetWordBeforeCursor(), true)
+}
+
 //--------------------------------------------
 type command struct {
 	name  string
@@ -84,7 +169,7 @@ var qString string
 // var service *drive.Service
 
 func init() {
-	fmt.Println("This will get called on main initialization")
+	// fmt.Println("This will get called on main initialization")
 	// allCommands = make([]command, 0)
 	allCommands = []command{
 		{"q", "", "Quit"},
@@ -262,13 +347,13 @@ func showResult(counter int, scope string) *drive.FileList {
 	// OrderBy(condition).
 	// Corpora("default").
 	// fmt.Println("Result start: ", page[counter], qString, counter, scope)
-	colorGreen := "\033[32m"
-	colorCyan := "\033[36m"
+	colorGreen := "\033[32m%26s  %s\t%s\t%s\t%s\n"
+	colorCyan := "\033[36m%26s  %s\t%s\t%s\t%s\n"
 
 	r, err := startSrv(scope).Files.List().
 		Q(qString).
 		PageSize(200).
-		Fields("nextPageToken, files(id, name, mimeType, owners)").
+		Fields("nextPageToken, files(id, name, mimeType, owners, createdTime)").
 		PageToken(page[counter]).
 		OrderBy("modifiedTime").
 		Do()
@@ -282,9 +367,10 @@ func showResult(counter int, scope string) *drive.FileList {
 	} else {
 		for _, i := range r.Files {
 			if i.MimeType == "application/vnd.google-apps.folder" {
-				fmt.Println(string(colorGreen), i.Name, i.Id, i.MimeType, i.Owners[0].DisplayName)
+				// fmt.Println(string(colorGreen), i.Name, i.Id, i.MimeType, i.Owners[0].DisplayName, i.CreatedTime)
+				fmt.Printf(string(colorGreen), i.Name, i.Id, i.MimeType, i.Owners[0].DisplayName, i.CreatedTime)
 			} else {
-				fmt.Println(string(colorCyan), i.Name, i.Id, i.MimeType, i.Owners[0].DisplayName)
+				fmt.Printf(string(colorCyan), i.Name, i.Id, i.MimeType, i.Owners[0].DisplayName, i.CreatedTime)
 			}
 		}
 	}
