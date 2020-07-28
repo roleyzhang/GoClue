@@ -78,7 +78,7 @@ func completer(in prompt.Document) []prompt.Suggest {
 		{Text: "mkdir", Description: "Create directory"},
 		{Text: "rm", Description: "Delete directory or file, use \"-r\" for delete directory"},
 		{Text: "cd", Description: "change directory"},
-		{Text: "..", Description: "Exit current directory"},
+		{Text: "move", Description: "move file or directory"},
 		{Text: "d", Description: "Download files use \"-r\" for download directory"},
 		{Text: "ls", Description: "list contents "},
 		{Text: "u", Description: "Upload directory or file, use \"-r\" for upload directory"},
@@ -86,51 +86,69 @@ func completer(in prompt.Document) []prompt.Suggest {
 		{Text: "n", Description: "Next page"},
 		{Text: "p", Description: "Previous page"},
 	}
+
+	if len(arrCommandStr) == 1 {
+		switch arrCommandStr[0]{
+		case "d":
+			if fileSug != nil {
+				s = *fileSug
+			}
+		case "rm":
+			if fileSug != nil {
+				s = *fileSug
+			}
+		case "mv":
+			if fileSug != nil {
+				s = *fileSug
+			}
+		}
+	}
 	if len(arrCommandStr) == 2 {
 		s = []prompt.Suggest{
 			{Text: "-t", Description: " filter by file type"},
 			{Text: "-n", Description: " list by name"},
 			{Text: "-d", Description: " list all folder"},
+			{Text: "-dir", Description: " list files of folder"},
 			{Text: "-l", Description: " list linked folder"},
 			{Text: "-s", Description: " list starred folder"},
 		}
-		// application/vnd.google-apps.audio	
-		// application/vnd.google-apps.document	Google Docs
-		// application/vnd.google-apps.drive-sdk	3rd party shortcut
-		// application/vnd.google-apps.drawing	Google Drawing
-		// application/vnd.google-apps.file	Google Drive file
-		// application/vnd.google-apps.folder	Google Drive folder
-		// application/vnd.google-apps.form	Google Forms
-		// application/vnd.google-apps.fusiontable	Google Fusion Tables
-		// application/vnd.google-apps.map	Google My Maps
-		// application/vnd.google-apps.photo	
-		// application/vnd.google-apps.presentation	Google Slides
-		// application/vnd.google-apps.script	Google Apps Scripts
-		// application/vnd.google-apps.shortcut	Shortcut
-		// application/vnd.google-apps.site	Google Sites
-		// application/vnd.google-apps.spreadsheet	Google Sheets
-		// application/vnd.google-apps.unknown	
-		// application/vnd.google-apps.video
 		switch arrCommandStr[1] {
 		case "-t", "--t":
 			s = []prompt.Suggest{
-				{Text: "application/vnd.google-apps.document", Description: " filter by file type"},
-				{Text: "application/pdf", Description: " list by name"},
-				{Text: "application/vnd.google-apps.form", Description: " list all folder"},
-				{Text: "application/msword", Description: " list linked folder"},
-				{Text: "application/vnd.google-apps.spreadsheet", Description: " list starred folder"},
-				{Text: "application/vnd.ms-excel", Description: " list starred folder"},
-				{Text: "text/html", Description: " list starred folder"},
-				{Text: "image/jpeg", Description: " list starred folder"},
-				{Text: "image/gif", Description: " list starred folder"},
-				{Text: "application/x-shockwave-flash", Description: " list starred folder"},
-				{Text: "application/x-javascript", Description: " list starred folder"},
-				{Text: "text/plain", Description: " list starred folder"},
-				{Text: "application/x-httpd-php", Description: " list starred folder"},
-				{Text: "text/css", Description: " list starred folder"},
-				{Text: "video/mp4", Description: " list starred folder"},
-				{Text: "application/vnd.google-apps.drawing", Description: " list starred folder"},
+				{Text: "application/vnd.google-apps.video", Description: " Video file"},
+				{Text: "video/mp4", Description: " MP4"},
+				{Text: "application/vnd.google-apps.audio", Description: " Audio"},
+				{Text: "application/vnd.google-apps.photo", Description: " Photo"},
+				{Text: "image/jpeg", Description: " JPEG"},
+				{Text: "image/gif", Description: " GIF"},
+				{Text: "application/vnd.google-apps.document", Description: " Google Docs"},
+				{Text: "application/vnd.google-apps.spreadsheet", Description: " Google Sheets"},
+				{Text: "application/vnd.google-apps.form", Description: " Google Forms"},
+				{Text: "application/vnd.google-apps.drawing", Description: " Google Drawing"},
+				{Text: "application/vnd.google-apps.presentation", Description: " Google Slides"},
+				{Text: "application/vnd.google-apps.script", Description: " Google Apps Scripts"},
+				{Text: "application/pdf", Description: " pdf file"},
+				{Text: "application/msword", Description: " MS Word"},
+				{Text: "application/vnd.ms-excel", Description: " MS EXCEL"},
+				{Text: "text/html", Description: " HTML"},
+				{Text: "text/plain", Description: " TXT"},
+				{Text: "application/x-javascript", Description: " Javascript"},
+				{Text: "application/x-httpd-php", Description: " PHP"},
+				{Text: "text/css", Description: " CSS"},
+				{Text: "application/vnd.google-apps.drive-sdk", Description: " 3rd party shortcut"},
+				{Text: "application/vnd.google-apps.file", Description: " Google Drive file"},
+				{Text: "application/vnd.google-apps.folder", Description: " Google Drive folder"},
+				{Text: "application/vnd.google-apps.fusiontable", Description: " Google Fusion Tables"},
+				{Text: "application/vnd.google-apps.map", Description: " Google My Maps"},
+				{Text: "application/vnd.google-apps.shortcut", Description: " Shortcut"},
+				{Text: "application/vnd.google-apps.site", Description: " Google Sites"},
+				{Text: "application/vnd.google-apps.unknown", Description: " unknown file type"},
+				{Text: "application/x-shockwave-flash", Description: " Flash"},
 				{Text: "appt", Description: " list starred folder"},
+			}
+		case "-dir", "--dir":
+			if dirSug != nil {
+				s = *dirSug
 			}
 		}
 	}
@@ -165,6 +183,8 @@ var pageToken string
 var counter int
 var page map[int]string
 var qString string
+var dirSug *[]prompt.Suggest
+var fileSug *[]prompt.Suggest
 
 // var service *drive.Service
 
@@ -177,10 +197,11 @@ func init() {
 		{"mkdir", "", "Create directory"},
 		{"rm", "", "Delete directory or file, use \"-r\" for delete directory"},
 		{"cd", "", "change directory"},
-		{"..", "", "Exit current directory"},
+		{"move", "", "move file or directory"},
 		{"d", "", "Download files use \"-r\" for download directory"},
 		{"ls", "-t filter by file type \n" +
 			"\t-n list by name \n" +
+			"\t-dir list files of folder\n" +
 			"\t-d list all folder \n" +
 			"\t-l list linked folder \n" +
 			"\t-s list starred folder \n",
@@ -194,6 +215,7 @@ func init() {
 	page = make(map[int]string)
 }
 
+// run the command which input by user
 func runCommand(commandStr string) {
 	commandStr = strings.TrimSuffix(commandStr, "\n")
 	arrCommandStr := strings.Fields(commandStr)
@@ -209,11 +231,12 @@ func runCommand(commandStr string) {
 			println("this is mkdir")
 		case "cd":
 			println("this is cd")
-		case "..":
-			println("this is ..")
+		case "mv":
+			move()
 		case "rm":
-			println("this is rm")
+			rm()
 		case "d":
+			download()
 			println("this is download")
 		case "ls":
 			list(arrCommandStr)
@@ -277,6 +300,7 @@ func startSrv(scope string) *drive.Service {
 func list(cmds []string) {
 
 	// parameter setting
+	// -dir list files of folder
 	// -a show all type of items
 	// -d show all folder
 	// -l show linked folder
@@ -285,6 +309,13 @@ func list(cmds []string) {
 	// -n show by name
 	if len(cmds) >= 2 {
 		switch cmds[1] {
+		case "-dir", "--dir":
+			if len(cmds) == 3 {
+				qString = "'" + cmds[2] + "' in parents"
+			}
+			counter = 0
+			clearMap()
+			userQuery()
 		case "-d", "--d":
 			qString = "mimeType = 'application/vnd.google-apps.folder'"
 			counter = 0
@@ -336,6 +367,15 @@ func clearMap() {
 	}
 }
 
+// generate prompt suggest for floder
+func getSugInfo() func(folder prompt.Suggest) *[]prompt.Suggest {
+	a := make([]prompt.Suggest, 0)
+	return func(folder prompt.Suggest) *[]prompt.Suggest {
+		a = append(a, folder)
+		return &a
+	}
+}
+
 // print the request result
 func showResult(counter int, scope string) *drive.FileList {
 	// This should testing by change the authorize token
@@ -349,10 +389,12 @@ func showResult(counter int, scope string) *drive.FileList {
 	// fmt.Println("Result start: ", page[counter], qString, counter, scope)
 	colorGreen := "\033[32m%26s  %s\t%s\t%s\t%s\n"
 	colorCyan := "\033[36m%26s  %s\t%s\t%s\t%s\n"
+	dirInfo := getSugInfo()
+	fileInfo := getSugInfo()
 
 	r, err := startSrv(scope).Files.List().
 		Q(qString).
-		PageSize(200).
+		PageSize(40).
 		Fields("nextPageToken, files(id, name, mimeType, owners, createdTime)").
 		PageToken(page[counter]).
 		OrderBy("modifiedTime").
@@ -369,12 +411,34 @@ func showResult(counter int, scope string) *drive.FileList {
 			if i.MimeType == "application/vnd.google-apps.folder" {
 				// fmt.Println(string(colorGreen), i.Name, i.Id, i.MimeType, i.Owners[0].DisplayName, i.CreatedTime)
 				fmt.Printf(string(colorGreen), i.Name, i.Id, i.MimeType, i.Owners[0].DisplayName, i.CreatedTime)
+				s := prompt.Suggest{Text: i.Id, Description: i.Name}
+				dirSug = dirInfo(s)
 			} else {
 				fmt.Printf(string(colorCyan), i.Name, i.Id, i.MimeType, i.Owners[0].DisplayName, i.CreatedTime)
+				s := prompt.Suggest{Text: i.Id, Description: i.Name}
+				fileSug = fileInfo(s)
 			}
 		}
 	}
 	return r
+}
+
+// rm ... delete file
+func rm() {
+	//TODO: delete file
+	println("this is rm")
+}
+
+// download file
+func download() {
+	//TODO: download file
+	println("this is download")
+}
+
+// move file
+func move() {
+	//TODO: move file
+	println("this is .. move")
 }
 
 // base query
