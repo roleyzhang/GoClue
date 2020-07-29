@@ -486,10 +486,14 @@ func download(cmds []string) error {
 	if len(cmds) >= 2 {
 		// println("this is download xx", cmds[1], cmds[2])
 		// drive.DriveReadonlyScope
-		// resp, err := startSrv(drive.DriveReadonlyScope).Files.Get(cmds[1]).Download(opts ...googleapi.CallOption)
-		resp, err := startSrv(drive.DriveReadonlyScope).Files. 
-			Get(cmds[1]).
-			Download()
+		fgc := startSrv(drive.DriveScope).Files.Get(cmds[1])
+		fgc.Header().Add("alt", "media")
+		resp, err := fgc.Download()
+		// resp, err := startSrv(drive.DriveReadonlyScope).Files.Get("").Header().Add("", "")
+		// .Get(cmds[1]).Download(opts ...googleapi.CallOption)
+		// resp, err := startSrv(drive.DriveReadonlyScope).Files. 
+		// 	Get(cmds[1]).
+		// 	Download()
 
 		println("this is download x0")
 		if err != nil {
@@ -538,19 +542,19 @@ func move() {
 // base query
 // name ...
 func userQuery() {
-	r := showResult(counter, drive.DriveMetadataReadonlyScope)
+	r := showResult(counter, drive.DriveScope)
 	pageToken = r.NextPageToken
 }
 
 // show next page
 func next(counter int) {
-	r := showResult(counter, drive.DriveMetadataReadonlyScope)
+	r := showResult(counter, drive.DriveScope)
 	pageToken = r.NextPageToken
 }
 
 // show previous page
 func previous(counter int) {
-	showResult(counter, drive.DriveMetadataReadonlyScope)
+	showResult(counter, drive.DriveScope)
 }
 
 // Retrieve a token, saves the token, then returns the generated client.
