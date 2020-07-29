@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"os/exec"
 
 	"github.com/c-bata/go-prompt"
 	"golang.org/x/net/context"
@@ -16,6 +17,8 @@ import (
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/drive/v3"
 	"google.golang.org/api/option"
+	"github.com/dustin/go-humanize"
+	"io"
 )
 
 func main() {
@@ -103,7 +106,7 @@ func completer(in prompt.Document) []prompt.Suggest {
 			}
 		}
 	}
-	if len(arrCommandStr) == 2 {
+	if len(arrCommandStr) >= 2 {
 		s = []prompt.Suggest{
 			{Text: "-t", Description: " filter by file type"},
 			{Text: "-n", Description: " list by name"},
@@ -111,6 +114,12 @@ func completer(in prompt.Document) []prompt.Suggest {
 			{Text: "-dir", Description: " list files of folder"},
 			{Text: "-l", Description: " list linked folder"},
 			{Text: "-s", Description: " list starred folder"},
+		}
+		switch arrCommandStr[0] {
+		case "d":
+			if pathSug != nil {
+				s = *pathSug
+			}
 		}
 		switch arrCommandStr[1] {
 		case "-t", "--t":
@@ -185,6 +194,7 @@ var page map[int]string
 var qString string
 var dirSug *[]prompt.Suggest
 var fileSug *[]prompt.Suggest
+var pathSug *[]prompt.Suggest
 
 // var service *drive.Service
 
@@ -213,6 +223,8 @@ func init() {
 	}
 
 	page = make(map[int]string)
+	// for prompt suggest
+	pathGenerate()	
 }
 
 // run the command which input by user
@@ -236,8 +248,10 @@ func runCommand(commandStr string) {
 		case "rm":
 			rm()
 		case "d":
-			download()
-			println("this is download")
+			err := download(arrCommandStr)
+			if err != nil {
+				log.Fatalf("Unable to download files: %v", err)
+			}
 		case "ls":
 			list(arrCommandStr)
 			// println("this is ls")
@@ -376,6 +390,20 @@ func getSugInfo() func(folder prompt.Suggest) *[]prompt.Suggest {
 	}
 }
 
+
+//  generate folder path...
+func pathGenerate()  {
+	pathInfo := getSugInfo()
+	cmd := exec.Command("tree", "-f", "-L", "3", "-i", "-d", os.Getenv("HOME"))
+	output, _ := cmd.Output()
+	for _, m := range strings.Split(string(output), "\n") {
+		// fmt.Printf("metric: %s\n", m)
+		s := prompt.Suggest{Text: m, Description: ""}
+		pathSug = pathInfo(s)
+	}
+}
+
+
 // print the request result
 func showResult(counter int, scope string) *drive.FileList {
 	// This should testing by change the authorize token
@@ -429,10 +457,75 @@ func rm() {
 	println("this is rm")
 }
 
+// WriteCounter counts the number of bytes written to it. It implements to the io.Writer interface
+// and we can pass this into io.TeeReader() which will report progress on each write cycle.
+type WriteCounter struct {
+	Total uint64
+}
+
+func (wc *WriteCounter) Write(p []byte) (int, error) {
+	n := len(p)
+	wc.Total += uint64(n)
+	wc.PrintProgress()
+	return n, nil
+}
+
+func (wc WriteCounter) PrintProgress() {
+	// Clear the line by using a character return to go back to the start and remove
+	// the remaining characters by filling it with spaces
+	fmt.Printf("\r%s", strings.Repeat(" ", 35))
+
+	// Return again and print current status of download
+	// We use the humanize package to print the bytes in a meaningful way (e.g. 10 MB)
+	fmt.Printf("\rDownloading... %s complete", humanize.Bytes(wc.Total))
+}
+
 // download file
-func download() {
+func download(cmds []string) error {
 	//TODO: download file
-	println("this is download")
+	if len(cmds) >= 2 {
+		// println("this is download xx", cmds[1], cmds[2])
+		// drive.DriveReadonlyScope
+		// resp, err := startSrv(drive.DriveReadonlyScope).Files.Get(cmds[1]).Download(opts ...googleapi.CallOption)
+		resp, err := startSrv(drive.DriveReadonlyScope).Files. 
+			Get(cmds[1]).
+			Download()
+
+		println("this is download x0")
+		if err != nil {
+			println("this is download x0" , err.Error())
+			return err
+			// log.Fatalf("Unable to retrieve files: %v", err)
+		}
+		println("this is download x1")
+		defer resp.Body.Close()
+		// Create the file, but give it a tmp file extension, this means we won't overwrite a
+		// file until it's downloaded, but we'll remove the tmp extension once downloaded.
+		out, err := os.Create(cmds[2]+ ".tmp")
+		if err != nil {
+			return err
+		}
+		println("this is download x2")
+		// Create our progress reporter and pass it to be used alongside our writer
+		counter := &WriteCounter{}
+		if _, err = io.Copy(out, io.TeeReader(resp.Body, counter)); err != nil {
+			out.Close()
+			return err
+		}
+		println("this is download x3")
+		// The progress use the same line so print a new line once it's finished downloading
+		fmt.Print("\n")
+
+		// Close the file without defer so it can happen before Rename()
+		out.Close()
+
+		if err = os.Rename(cmds[2]+".tmp", cmds[2]); err != nil {
+			return err
+			// log.Fatalf("Unable to save files: %v", err)
+		}
+		println("this is download x4")
+	}
+	 return nil
 }
 
 // move file
@@ -440,6 +533,7 @@ func move() {
 	//TODO: move file
 	println("this is .. move")
 }
+
 
 // base query
 // name ...

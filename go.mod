@@ -7,6 +7,7 @@ require (
 	github.com/c-bata/go-prompt v0.2.3
 	github.com/cweill/gotests v1.5.3 // indirect
 	github.com/davidrjenni/reftools v0.0.0-20191222082827-65925cf01315 // indirect
+	github.com/dustin/go-humanize v1.0.0
 	github.com/go-xmlfmt/xmlfmt v0.0.0-20191208150333-d5b6f63a941b // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/godoctor/godoctor v0.0.0-20200702010311-8433dcb3dc61 // indirect
