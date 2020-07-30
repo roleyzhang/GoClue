@@ -19,6 +19,7 @@ import (
 	"google.golang.org/api/option"
 	"github.com/dustin/go-humanize"
 	"io"
+	// "encoding/json"
 )
 
 func main() {
@@ -250,7 +251,7 @@ func runCommand(commandStr string) {
 		case "d":
 			err := download(arrCommandStr)
 			if err != nil {
-				log.Fatalf("Unable to download files: %v", err)
+				log.Fatalf("Unable to download files: %v", err.Error())
 			}
 		case "ls":
 			list(arrCommandStr)
@@ -480,6 +481,16 @@ func (wc WriteCounter) PrintProgress() {
 	fmt.Printf("\rDownloading... %s complete", humanize.Bytes(wc.Total))
 }
 
+// getSugDec ...
+func getSugDec(sug *[]prompt.Suggest, text string) string {
+	for _, v := range *sug{
+		if v.Text == text{
+			fmt.Println( v.Description)
+			return v.Description
+		}
+	}
+	return ""
+}
 // download file
 func download(cmds []string) error {
 	//TODO: download file
@@ -489,45 +500,43 @@ func download(cmds []string) error {
 		fgc := startSrv(drive.DriveScope).Files.Get(cmds[1])
 		fgc.Header().Add("alt", "media")
 		resp, err := fgc.Download()
-		// resp, err := startSrv(drive.DriveReadonlyScope).Files.Get("").Header().Add("", "")
-		// .Get(cmds[1]).Download(opts ...googleapi.CallOption)
-		// resp, err := startSrv(drive.DriveReadonlyScope).Files. 
-		// 	Get(cmds[1]).
-		// 	Download()
 
-		println("this is download x0")
+		// println("this is download x0")
 		if err != nil {
-			println("this is download x0" , err.Error())
+			// println("this is download x0" , err.Error())
 			return err
 			// log.Fatalf("Unable to retrieve files: %v", err)
 		}
-		println("this is download x1")
+		// println("this is download x1", cmds[2])
 		defer resp.Body.Close()
 		// Create the file, but give it a tmp file extension, this means we won't overwrite a
 		// file until it's downloaded, but we'll remove the tmp extension once downloaded.
-		out, err := os.Create(cmds[2]+ ".tmp")
+		fileName := cmds[2]+"/"+ getSugDec(fileSug ,cmds[1])
+		out, err := os.Create(fileName+".tmp")
 		if err != nil {
 			return err
 		}
-		println("this is download x2")
+		// println("this is download x2 ", fileName)
 		// Create our progress reporter and pass it to be used alongside our writer
 		counter := &WriteCounter{}
 		if _, err = io.Copy(out, io.TeeReader(resp.Body, counter)); err != nil {
 			out.Close()
 			return err
 		}
-		println("this is download x3")
+		// println("this is download x3")
 		// The progress use the same line so print a new line once it's finished downloading
 		fmt.Print("\n")
 
 		// Close the file without defer so it can happen before Rename()
 		out.Close()
 
-		if err = os.Rename(cmds[2]+".tmp", cmds[2]); err != nil {
-			return err
-			// log.Fatalf("Unable to save files: %v", err)
+		// println("this is download x3-1")
+		if err = os.Rename(fileName+".tmp", fileName); err != nil {
+			// println("this is download x3-2", err.Error())
+			// return err
+			log.Fatalf("Unable to save files: %v", err)
 		}
-		println("this is download x4")
+		// println("this is download x4")
 	}
 	 return nil
 }
