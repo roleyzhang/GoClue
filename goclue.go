@@ -8,17 +8,19 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strings"
 	"os/exec"
+	"strconv"
+	"strings"
+
+	"io"
 
 	"github.com/c-bata/go-prompt"
+	"github.com/dustin/go-humanize"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/drive/v3"
 	"google.golang.org/api/option"
-	"github.com/dustin/go-humanize"
-	"io"
 	// "encoding/json"
 )
 
@@ -29,6 +31,7 @@ func main() {
 		executor,
 		completer,
 		prompt.OptionPrefix(">>> "),
+		prompt.OptionLivePrefix(changeLivePrefix),
 		prompt.OptionTitle("GOCULE"),
 	)
 	p.Run()
@@ -70,6 +73,14 @@ func executor(in string) {
 	runCommand(in)
 	h := prompt.NewHistory()
 	h.Add(in)
+
+	// if in == "" {
+	// 	LivePrefixState.IsEnable = false
+	// 	LivePrefixState.LivePrefix = in
+	// 	return
+	// }
+	// LivePrefixState.LivePrefix = in + ">>> "
+	// LivePrefixState.IsEnable = true
 }
 
 func completer(in prompt.Document) []prompt.Suggest {
@@ -181,6 +192,19 @@ func completer(in prompt.Document) []prompt.Suggest {
 	return prompt.FilterHasPrefix(s, in.GetWordBeforeCursor(), true)
 }
 
+var LivePrefixState struct {
+	LivePrefix string
+	IsEnable   bool
+}
+func changeLivePrefix() (string, bool) {
+	return LivePrefixState.LivePrefix, LivePrefixState.IsEnable
+}
+// msg ...
+func msg(message string)  {
+	LivePrefixState.LivePrefix = message + ">>> "
+	LivePrefixState.IsEnable = true
+}
+
 //--------------------------------------------
 type command struct {
 	name  string
@@ -253,8 +277,12 @@ func runCommand(commandStr string) {
 			if err != nil {
 				log.Fatalf("Unable to download files: %v", err.Error())
 			}
+			// counter := &WriteCounter{}
+			// counter.PrintProgress()
+			// fmt.Printf("page %d", counter.PrintProgress())
 		case "ls":
 			list(arrCommandStr)
+			msg("")
 			// println("this is ls")
 		case "u":
 			println("this is upload")
@@ -262,6 +290,7 @@ func runCommand(commandStr string) {
 			for _, cmd := range allCommands {
 				fmt.Printf("%6s: %s %s \n", cmd.name, cmd.param, cmd.tip)
 			}
+			msg("")
 		case "n":
 			counter++
 			// fmt.Printf("counter %d", counter)
@@ -269,7 +298,8 @@ func runCommand(commandStr string) {
 				page[counter] = pageToken
 			}
 			next(counter)
-			fmt.Printf("page %d", counter)
+			msg("Page "+strconv.Itoa(counter))
+			// fmt.Printf("page %d", counter)
 		case "p":
 			if counter > 0 {
 				counter--
@@ -277,9 +307,11 @@ func runCommand(commandStr string) {
 			// fmt.Printf("counter %d", counter)
 			pageToken = page[counter]
 			previous(counter)
-			fmt.Printf("page %d", counter)
+			msg("Page "+strconv.Itoa(counter))
+			// fmt.Printf("page %d", counter)
 		default:
 			println("Please check your input or type \"h\" get help")
+			msg("")
 		}
 
 	}
@@ -475,10 +507,10 @@ func (wc WriteCounter) PrintProgress() {
 	// Clear the line by using a character return to go back to the start and remove
 	// the remaining characters by filling it with spaces
 	fmt.Printf("\r%s", strings.Repeat(" ", 35))
-
 	// Return again and print current status of download
 	// We use the humanize package to print the bytes in a meaningful way (e.g. 10 MB)
 	fmt.Printf("\rDownloading... %s complete", humanize.Bytes(wc.Total))
+	// msg("Downloading... "+ humanize.Bytes(wc.Total)+ " complete ")
 }
 
 // getSugDec ...
