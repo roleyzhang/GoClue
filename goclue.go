@@ -93,6 +93,7 @@ func completer(in prompt.Document) []prompt.Suggest {
 		{Text: "mkdir", Description: "Create directory"},
 		{Text: "rm", Description: "Delete directory or file, use \"-r\" for delete directory"},
 		{Text: "cd", Description: "change directory"},
+		{Text: "pwd", Description: "print current directory"},
 		{Text: "move", Description: "move file or directory"},
 		{Text: "d", Description: "Download files use \"-r\" for download directory"},
 		{Text: "ls", Description: "list contents "},
@@ -220,18 +221,24 @@ var qString string
 var dirSug *[]prompt.Suggest
 var fileSug *[]prompt.Suggest
 var pathSug *[]prompt.Suggest
+var colorGreen string
+var colorCyan string
 
 // var service *drive.Service
 
 func init() {
 	// fmt.Println("This will get called on main initialization")
 	// allCommands = make([]command, 0)
+
+	colorGreen = "\033[32m%26s  %s\t%s\t%s\t%s\n"
+	colorCyan = "\033[36m%26s  %s\t%s\t%s\t%s\n"
 	allCommands = []command{
 		{"q", "", "Quit"},
 		{"login", "", "Login to your account of net drive"},
 		{"mkdir", "", "Create directory"},
 		{"rm", "", "Delete directory or file, use \"-r\" for delete directory"},
 		{"cd", "", "change directory"},
+		{"pwd", "", "print current directory"},
 		{"move", "", "move file or directory"},
 		{"d", "", "Download files use \"-r\" for download directory"},
 		{"ls", "-t filter by file type \n" +
@@ -268,6 +275,9 @@ func runCommand(commandStr string) {
 			println("this is mkdir")
 		case "cd":
 			println("this is cd")
+		case "pwd":
+			println("this is pwd")
+			getNode()
 		case "mv":
 			move()
 		case "rm":
@@ -448,8 +458,8 @@ func showResult(counter int, scope string) *drive.FileList {
 	// OrderBy(condition).
 	// Corpora("default").
 	// fmt.Println("Result start: ", page[counter], qString, counter, scope)
-	colorGreen := "\033[32m%26s  %s\t%s\t%s\t%s\n"
-	colorCyan := "\033[36m%26s  %s\t%s\t%s\t%s\n"
+	// colorGreen := "\033[32m%26s  %s\t%s\t%s\t%s\n"
+	// colorCyan := "\033[36m%26s  %s\t%s\t%s\t%s\n"
 	dirInfo := getSugInfo()
 	fileInfo := getSugInfo()
 
@@ -596,6 +606,25 @@ func next(counter int) {
 // show previous page
 func previous(counter int) {
 	showResult(counter, drive.DriveScope)
+}
+
+// getNode ...
+func getNode() {
+	root, err := startSrv(drive.DriveScope).
+		Files.Get("root").
+		Fields("files(id, name, mimeType, owners, createdTime)").
+		Do()
+	if err != nil {
+		println("shit happened: " , err.Error())
+		// log.Fatalf("Unable to retrieve root: %v", err)
+	}
+	fmt.Printf(string(colorGreen),
+		root.Name,
+		root.Id,
+		root.MimeType,
+		root.Owners[0].DisplayName,
+		root.CreatedTime)
+	// return root.Name
 }
 
 // Retrieve a token, saves the token, then returns the generated client.
