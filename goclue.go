@@ -104,7 +104,7 @@ func completer(in prompt.Document) []prompt.Suggest {
 	}
 
 	if len(arrCommandStr) == 1 {
-		switch arrCommandStr[0]{
+		switch arrCommandStr[0] {
 		case "d":
 			if fileSug != nil {
 				s = *fileSug
@@ -116,6 +116,13 @@ func completer(in prompt.Document) []prompt.Suggest {
 		case "mv":
 			if fileSug != nil {
 				s = *fileSug
+			}
+		case "cd":
+			// if fileSug != nil {
+			// 	s = *fileSug
+			// }
+			if dirSug != nil {
+				s = *dirSug
 			}
 		}
 	}
@@ -197,11 +204,13 @@ var LivePrefixState struct {
 	LivePrefix string
 	IsEnable   bool
 }
+
 func changeLivePrefix() (string, bool) {
 	return LivePrefixState.LivePrefix, LivePrefixState.IsEnable
 }
+
 // msg ...
-func msg(message string)  {
+func msg(message string) {
 	LivePrefixState.LivePrefix = message + ">>> "
 	LivePrefixState.IsEnable = true
 }
@@ -224,6 +233,14 @@ var pathSug *[]prompt.Suggest
 var colorGreen string
 var colorCyan string
 
+type itemInfo struct {
+	// item       *drive.File
+	path []string
+	parentId string
+	itemId string
+}
+
+var ii itemInfo
 // var service *drive.Service
 
 func init() {
@@ -256,7 +273,15 @@ func init() {
 
 	page = make(map[int]string)
 	// for prompt suggest
-	pathGenerate()	
+	pathGenerate()
+
+	ii = itemInfo{
+		path: make([]string, 0),
+		parentId: "",
+		itemId: "",
+
+	}
+	ii.getNode("root")
 }
 
 // run the command which input by user
@@ -275,9 +300,10 @@ func runCommand(commandStr string) {
 			println("this is mkdir")
 		case "cd":
 			println("this is cd")
+			ii.getNode(arrCommandStr[1])
 		case "pwd":
 			println("this is pwd")
-			getNode()
+			// getNode()
 		case "mv":
 			move()
 		case "rm":
@@ -308,7 +334,7 @@ func runCommand(commandStr string) {
 				page[counter] = pageToken
 			}
 			next(counter)
-			msg("Page "+strconv.Itoa(counter))
+			msg("Page " + strconv.Itoa(counter))
 			// fmt.Printf("page %d", counter)
 		case "p":
 			if counter > 0 {
@@ -317,7 +343,7 @@ func runCommand(commandStr string) {
 			// fmt.Printf("counter %d", counter)
 			pageToken = page[counter]
 			previous(counter)
-			msg("Page "+strconv.Itoa(counter))
+			msg("Page " + strconv.Itoa(counter))
 			// fmt.Printf("page %d", counter)
 		default:
 			println("Please check your input or type \"h\" get help")
@@ -433,9 +459,8 @@ func getSugInfo() func(folder prompt.Suggest) *[]prompt.Suggest {
 	}
 }
 
-
 //  generate folder path...
-func pathGenerate()  {
+func pathGenerate() {
 	pathInfo := getSugInfo()
 	cmd := exec.Command("tree", "-f", "-L", "3", "-i", "-d", os.Getenv("HOME"))
 	output, _ := cmd.Output()
@@ -445,7 +470,6 @@ func pathGenerate()  {
 		pathSug = pathInfo(s)
 	}
 }
-
 
 // print the request result
 func showResult(counter int, scope string) *drive.FileList {
@@ -525,14 +549,15 @@ func (wc WriteCounter) PrintProgress() {
 
 // getSugDec ...
 func getSugDec(sug *[]prompt.Suggest, text string) string {
-	for _, v := range *sug{
-		if v.Text == text{
-			fmt.Println( v.Description)
+	for _, v := range *sug {
+		if v.Text == text {
+			fmt.Println(v.Description)
 			return v.Description
 		}
 	}
 	return ""
 }
+
 // download file
 func download(cmds []string) error {
 	//TODO: download file
@@ -553,8 +578,8 @@ func download(cmds []string) error {
 		defer resp.Body.Close()
 		// Create the file, but give it a tmp file extension, this means we won't overwrite a
 		// file until it's downloaded, but we'll remove the tmp extension once downloaded.
-		fileName := cmds[2]+"/"+ getSugDec(fileSug ,cmds[1])
-		out, err := os.Create(fileName+".tmp")
+		fileName := cmds[2] + "/" + getSugDec(fileSug, cmds[1])
+		out, err := os.Create(fileName + ".tmp")
 		if err != nil {
 			return err
 		}
@@ -580,7 +605,7 @@ func download(cmds []string) error {
 		}
 		// println("this is download x4")
 	}
-	 return nil
+	return nil
 }
 
 // move file
@@ -588,7 +613,6 @@ func move() {
 	//TODO: move file
 	println("this is .. move")
 }
-
 
 // base query
 // name ...
@@ -609,21 +633,26 @@ func previous(counter int) {
 }
 
 // getNode ...
-func getNode() {
-	root, err := startSrv(drive.DriveScope).
-		Files.Get("root").
-		Fields("files(id, name, mimeType, owners, createdTime)").
+func (ii *itemInfo)getNode(id string) {
+	// println(id)
+	item, err := startSrv(drive.DriveScope).
+		Files.Get(id).
+		// Files.Get("root").
+		Fields("id, name, mimeType, parents, owners, createdTime").
 		Do()
 	if err != nil {
-		println("shit happened: " , err.Error())
+		println("shit happened: ", err.Error())
 		// log.Fatalf("Unable to retrieve root: %v", err)
 	}
+	ii.path = append(ii.path, item.Id)
+	// fmt.Printf(string(colorGreen), root.Id)
 	fmt.Printf(string(colorGreen),
-		root.Name,
-		root.Id,
-		root.MimeType,
-		root.Owners[0].DisplayName,
-		root.CreatedTime)
+		item.Name,
+		item.Id,
+		item.MimeType,
+		item.Parents,
+		strconv.Itoa(len(ii.path)),
+		item.CreatedTime)
 	// return root.Name
 }
 
