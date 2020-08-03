@@ -235,12 +235,13 @@ var colorCyan string
 
 type itemInfo struct {
 	// item       *drive.File
-	path []string
+	path map[string]string
 	// parentId string
 	itemId string
 }
 
 var ii itemInfo
+
 // var service *drive.Service
 
 func init() {
@@ -276,10 +277,9 @@ func init() {
 	pathGenerate()
 
 	ii = itemInfo{
-		path: make([]string, 0),
+		path: make(map[string]string),
 		// parentId: "",
 		itemId: "",
-
 	}
 	ii.getNode("root")
 }
@@ -298,16 +298,23 @@ func runCommand(commandStr string) {
 			println("this is login")
 		case "mkdir":
 			println("this is mkdir")
+			ii.setPrefix("")
 		case "cd":
 			println("this is cd")
+			// ii.getNode(arrCommandStr[1])
+			// ii.setRoot(arrCommandStr[1])
 			ii.getNode(arrCommandStr[1])
+			ii.setPrefix("")
 		case "pwd":
 			println("this is pwd")
+			ii.setPrefix("")
 			// getNode()
 		case "mv":
 			move()
+			ii.setPrefix("")
 		case "rm":
 			rm()
+			ii.setPrefix("")
 		case "d":
 			err := download(arrCommandStr)
 			if err != nil {
@@ -316,17 +323,19 @@ func runCommand(commandStr string) {
 			// counter := &WriteCounter{}
 			// counter.PrintProgress()
 			// fmt.Printf("page %d", counter.PrintProgress())
+			ii.setPrefix("")
 		case "ls":
 			list(arrCommandStr)
-			msg("")
+			ii.setPrefix("")
 			// println("this is ls")
 		case "u":
 			println("this is upload")
+			ii.setPrefix("")
 		case "h":
 			for _, cmd := range allCommands {
 				fmt.Printf("%6s: %s %s \n", cmd.name, cmd.param, cmd.tip)
 			}
-			msg("")
+			ii.setPrefix("")
 		case "n":
 			counter++
 			// fmt.Printf("counter %d", counter)
@@ -334,7 +343,7 @@ func runCommand(commandStr string) {
 				page[counter] = pageToken
 			}
 			next(counter)
-			msg("Page " + strconv.Itoa(counter))
+			ii.setPrefix("- Page " + strconv.Itoa(counter))
 			// fmt.Printf("page %d", counter)
 		case "p":
 			if counter > 0 {
@@ -343,11 +352,11 @@ func runCommand(commandStr string) {
 			// fmt.Printf("counter %d", counter)
 			pageToken = page[counter]
 			previous(counter)
-			msg("Page " + strconv.Itoa(counter))
+			ii.setPrefix("- Page " + strconv.Itoa(counter))
 			// fmt.Printf("page %d", counter)
 		default:
 			println("Please check your input or type \"h\" get help")
-			msg("")
+			ii.setPrefix("")
 		}
 
 	}
@@ -436,6 +445,7 @@ func list(cmds []string) {
 			userQuery()
 		}
 	} else {
+		qString = "'" + ii.itemId + "' in parents"
 		counter = 0
 		clearMap()
 		userQuery()
@@ -486,6 +496,13 @@ func showResult(counter int, scope string) *drive.FileList {
 	// colorCyan := "\033[36m%26s  %s\t%s\t%s\t%s\n"
 	dirInfo := getSugInfo()
 	fileInfo := getSugInfo()
+
+	//--------every time runCommand add folder history to dirSug
+	for key, value := range ii.path {
+		s := prompt.Suggest{Text: key, Description: value}
+		dirSug = dirInfo(s)
+
+	}
 
 	r, err := startSrv(scope).Files.List().
 		Q(qString).
@@ -632,14 +649,27 @@ func previous(counter int) {
 	showResult(counter, drive.DriveScope)
 }
 
+// setPrefix ...
+func (ii *itemInfo) setPrefix(msgs string) {
+	// folderId := ii.path[len(ii.path)-1]
+	folderId := ii.itemId
+	if dirSug != nil {
+		folderName := getSugDec(dirSug, folderId)
+		msg(folderName + msgs)
+	}
+}
 
 // setRoot ...
-func (ii *itemInfo)setRoot(id string) {
-	file := ii.getNode(id)
-	// if file
-}
+// func (ii *itemInfo) setRoot(id string) {
+// 	ii.getNode(id)
+// 	// ii.setPrefix("")
+// 	// folderName := getSugDec(dirSug, id)
+// 	// msg(folderName)
+// 	// if file
+// }
+
 // getNode ...
-func (ii *itemInfo)getNode(id string) *drive.File{
+func (ii *itemInfo) getNode(id string) {
 	// println(id)
 	item, err := startSrv(drive.DriveScope).
 		Files.Get(id).
@@ -648,21 +678,20 @@ func (ii *itemInfo)getNode(id string) *drive.File{
 		Do()
 	if err != nil {
 		println("shit happened: ", err.Error())
-		// log.Fatalf("Unable to retrieve root: %v", err)
-		return nil
+		log.Fatalf("Unable to retrieve root: %v", err)
+		// return nil
 	}
-	ii.path = append(ii.path, item.Id)
-	ii.itemId = item.Id
-	// ii.parentId = item.Parents
-	// fmt.Printf(string(colorGreen), root.Id)
-	// fmt.Printf(string(colorGreen),
-	// 	item.Name,
-	// 	item.Id,
-	// 	item.MimeType,
-	// 	item.Parents,
-	// 	strconv.Itoa(len(ii.path)),
-	// 	item.CreatedTime)
-	return item
+	if item.MimeType == "application/vnd.google-apps.folder" {
+		ii.path[item.Id] = item.Name
+		ii.itemId = item.Id
+		// fmt.Printf(string(colorGreen),
+		// 	item.Name,
+		// 	item.Id,
+		// 	item.MimeType,
+		// 	item.Parents,
+		// 	strconv.Itoa(len(ii.path)),
+		// 	item.CreatedTime)
+	}
 }
 
 // Retrieve a token, saves the token, then returns the generated client.
