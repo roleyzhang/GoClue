@@ -236,7 +236,7 @@ var colorCyan string
 type itemInfo struct {
 	// item       *drive.File
 	path []string
-	parentId string
+	// parentId string
 	itemId string
 }
 
@@ -277,7 +277,7 @@ func init() {
 
 	ii = itemInfo{
 		path: make([]string, 0),
-		parentId: "",
+		// parentId: "",
 		itemId: "",
 
 	}
@@ -632,8 +632,14 @@ func previous(counter int) {
 	showResult(counter, drive.DriveScope)
 }
 
+
+// setRoot ...
+func (ii *itemInfo)setRoot(id string) {
+	file := ii.getNode(id)
+	// if file
+}
 // getNode ...
-func (ii *itemInfo)getNode(id string) {
+func (ii *itemInfo)getNode(id string) *drive.File{
 	// println(id)
 	item, err := startSrv(drive.DriveScope).
 		Files.Get(id).
@@ -643,17 +649,20 @@ func (ii *itemInfo)getNode(id string) {
 	if err != nil {
 		println("shit happened: ", err.Error())
 		// log.Fatalf("Unable to retrieve root: %v", err)
+		return nil
 	}
 	ii.path = append(ii.path, item.Id)
+	ii.itemId = item.Id
+	// ii.parentId = item.Parents
 	// fmt.Printf(string(colorGreen), root.Id)
-	fmt.Printf(string(colorGreen),
-		item.Name,
-		item.Id,
-		item.MimeType,
-		item.Parents,
-		strconv.Itoa(len(ii.path)),
-		item.CreatedTime)
-	// return root.Name
+	// fmt.Printf(string(colorGreen),
+	// 	item.Name,
+	// 	item.Id,
+	// 	item.MimeType,
+	// 	item.Parents,
+	// 	strconv.Itoa(len(ii.path)),
+	// 	item.CreatedTime)
+	return item
 }
 
 // Retrieve a token, saves the token, then returns the generated client.
