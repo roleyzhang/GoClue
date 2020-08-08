@@ -23,6 +23,7 @@ import (
 	"google.golang.org/api/option"
 	// "encoding/json"
 	"errors"
+	"path"
 	"path/filepath"
 )
 
@@ -89,7 +90,7 @@ func completer(in prompt.Document) []prompt.Suggest {
 	// cmdStr = strings.TrimSuffix(cmdStr, "\n")
 	arrCommandStr := strings.Fields(in.TextBeforeCursor())
 
-	// fmt.Println("Your input: ",len(arrCommandStr) ,len(in.TextBeforeCursor()))
+	// fmt.Println("Your input: ",len(arrCommandStr) ,in.TextBeforeCursor())
 	s := []prompt.Suggest{
 		// {Text: "q", Description: "Quit"},
 		// {Text: "login", Description: "Login to your account of net drive"},
@@ -97,7 +98,7 @@ func completer(in prompt.Document) []prompt.Suggest {
 		// {Text: "rm", Description: "Delete directory or file, use \"-r\" for delete directory"},
 		// {Text: "cd", Description: "change directory"},
 		// {Text: "pwd", Description: "print current directory"},
-		// {Text: "move", Description: "move file or directory"},
+		// {Text: "mv", Description: "move file or directory"},
 		// {Text: "d", Description: "Download files use \"-r\" for download directory"},
 		// {Text: "ls", Description: "list contents "},
 		// {Text: "u", Description: "Upload directory or file, use \"-r\" for upload directory"},
@@ -114,7 +115,7 @@ func completer(in prompt.Document) []prompt.Suggest {
 			{Text: "rm", Description: "Delete directory or file, use \"-r\" for delete directory"},
 			{Text: "tr", Description: "Trash directory or file, use \"-r\" for delete directory"},
 			{Text: "cd", Description: "change directory"},
-			{Text: "move", Description: "move file or directory"},
+			{Text: "mv", Description: "move file or directory, use \">\" Separate source and target"},
 			{Text: "d", Description: "Download files use \"-r\" for download directory"},
 			{Text: "ls", Description: "list contents "},
 			{Text: "u", Description: "Upload directory or file, use \"-r\" for upload directory"},
@@ -123,7 +124,7 @@ func completer(in prompt.Document) []prompt.Suggest {
 			{Text: "p", Description: "Previous page"},
 		}
 	}
-	if len(arrCommandStr) == 1 {
+	if len(arrCommandStr) >= 1 {
 		switch arrCommandStr[0] {
 		case "d":
 			if fileSug != nil {
@@ -138,9 +139,10 @@ func completer(in prompt.Document) []prompt.Suggest {
 				s = *fileSug
 			}
 		case "mv":
-			if fileSug != nil {
-				s = *fileSug
+			if allSug != nil {
+				s = *allSug
 			}
+			// fmt.Println("cause mv : ", in.Text)
 		case "cd":
 			// if fileSug != nil {
 			// 	s = *fileSug
@@ -279,8 +281,11 @@ var qString string
 var dirSug *[]prompt.Suggest
 var fileSug *[]prompt.Suggest
 var pathSug *[]prompt.Suggest
+var allSug *[]prompt.Suggest
 var colorGreen string
 var colorCyan string
+var colorYellow string
+var colorRed string
 
 type itemInfo struct {
 	// item       *drive.File
@@ -299,6 +304,8 @@ func init() {
 
 	colorGreen = "\033[32m%26s  %s\t%s\t%s\t%s\n"
 	colorCyan = "\033[36m%26s  %s\t%s\t%s\t%s\n"
+	colorYellow = "\033[33m%s %s %s\n"
+	colorRed = "\033[31m%s\n"
 	allCommands = []command{
 		{"q", "", "Quit"},
 		{"login", "", "Login to your account of net drive"},
@@ -306,14 +313,14 @@ func init() {
 		{"rm", "", "Delete directory or file, use \"-r\" for delete directory"},
 		{"tr", "", "Trash directory or file, use \"-r\" for delete directory"},
 		{"cd", "", "change directory"},
-		{"move", "", "move file or directory"},
+		{"mv", "", "move file or directory, use \">\" Separate source and target"},
 		{"d", "", "Download files use \"-r\" for download directory"},
 		{"ls", "-t filter by file type \n" +
 			"\t-n list by name \n" +
 			"\t-dir list files of folder\n" +
 			"\t-d list all folder \n" +
 			"\t-l list linked folder \n" +
-			"\t-s list starred folder \n"+
+			"\t-s list starred folder \n" +
 			"\t-tr list trashed \n",
 			"\tlist contents "},
 		{"u", "", "Upload directory or file, use \"-r\" for upload directory"},
@@ -363,7 +370,10 @@ func runCommand(commandStr string) {
 			ii.setPrefix("")
 			// getNode()
 		case "mv":
-			move()
+			if err := ii.move(commandStr); err != nil {
+				log.Println("Can not move file" + err.Error())
+			}
+			// move()
 			ii.setPrefix("")
 		case "tr":
 			if arrCommandStr[1] == "-r" {
@@ -430,7 +440,7 @@ func runCommand(commandStr string) {
 			ii.setPrefix("- Page " + strconv.Itoa(counter))
 			// fmt.Printf("page %d", counter)
 		default:
-			println("Please check your input or type \"h\" get help")
+			fmt.Printf(string(colorRed), "Please check your input or type \"h\" get help")
 			ii.setPrefix("")
 		}
 
@@ -479,7 +489,7 @@ func list(cmds []string) {
 		case "-dir", "--dir":
 			if len(cmds) == 3 {
 				qString = "'" + cmds[2] + "' in parents"
-			}else{
+			} else {
 				qString = "trashed=false"
 			}
 			counter = 0
@@ -589,6 +599,7 @@ func showResult(counter int, scope string) *drive.FileList {
 	// colorCyan := "\033[36m%26s  %s\t%s\t%s\t%s\n"
 	dirInfo := getSugInfo()
 	fileInfo := getSugInfo()
+	allInfo := getSugInfo()
 
 	//--------every time runCommand add folder history to dirSug
 	for key, value := range ii.path {
@@ -601,7 +612,7 @@ func showResult(counter int, scope string) *drive.FileList {
 	r, err := startSrv(scope).Files.List().
 		Q(qString).
 		PageSize(40).
-		Fields("nextPageToken, files(id, name, mimeType, owners, createdTime)").
+		Fields("nextPageToken, files(id, name, mimeType, owners, parents, createdTime)").
 		PageToken(page[counter]).
 		OrderBy("modifiedTime").
 		Do()
@@ -616,17 +627,21 @@ func showResult(counter int, scope string) *drive.FileList {
 		for _, i := range r.Files {
 			if i.MimeType == "application/vnd.google-apps.folder" {
 				// fmt.Println(string(colorGreen), i.Name, i.Id, i.MimeType, i.Owners[0].DisplayName, i.CreatedTime)
-				fmt.Printf(string(colorGreen), i.Name, i.Id, i.MimeType, i.Owners[0].DisplayName, i.CreatedTime)
+				fmt.Printf(string(colorGreen), i.Name, i.Id, i.MimeType, i.Owners[0].DisplayName, i.Parents, i.CreatedTime)
 				s := prompt.Suggest{Text: i.Id, Description: i.Name}
+				s2 := prompt.Suggest{Text: i.Name, Description: i.Id}
 				dirSug = dirInfo(s)
+				allSug = allInfo(s2)
 				// }else if i.MimeType == "application/vnd.google-apps.shortcut" {
 				// 	fmt.Printf(string(colorGreen), i.Name, i.Id, i.MimeType, i.Owners[0].DisplayName, i.CreatedTime)
 				// 	s := prompt.Suggest{Text: i.Id, Description: i.Name}
 				// 	dirSug = dirInfo(s)
 			} else {
-				fmt.Printf(string(colorCyan), i.Name, i.Id, i.MimeType, i.Owners[0].DisplayName, i.CreatedTime)
+				fmt.Printf(string(colorCyan), i.Name, i.Id, i.MimeType, i.Owners[0].DisplayName, i.Parents, i.CreatedTime)
 				s := prompt.Suggest{Text: i.Id, Description: i.Name}
+				s2 := prompt.Suggest{Text: i.Name, Description: i.Id}
 				fileSug = fileInfo(s)
+				allSug = allInfo(s2)
 			}
 		}
 	}
@@ -663,13 +678,51 @@ func (wc WriteCounter) PrintProgress() {
 
 // getSugDec ...
 func getSugDec(sug *[]prompt.Suggest, text string) string {
-	for _, v := range *sug {
-		if v.Text == text {
-			fmt.Println(v.Description)
-			return v.Description
+
+	if sug != nil {
+		for _, v := range *sug {
+			if v.Text == text {
+				fmt.Println(v.Description)
+				return v.Description
+			}
 		}
+	} else {
+		return text
 	}
 	return ""
+}
+
+// getSugId ...
+func getSugId(sug *[]prompt.Suggest, text string) (string, error) {
+
+	if sug != nil {
+		for _, v := range *sug {
+			if v.Text == text {
+				fmt.Println(v.Description)
+				return v.Description, nil
+			}
+		}
+	}
+	qString := "name='" + text + "'"
+
+	file, err := startSrv(drive.DriveScope).Files.List().
+		Q(qString).
+		PageSize(2).
+		Fields("nextPageToken, files(id, name, mimeType, owners, createdTime)").
+		// Fields("id, name, mimeType, parents, createdTime").
+		Do()
+
+	if err != nil {
+		fmt.Printf(string(colorRed), err.Error())
+		return "", err
+	}
+	// fmt.Printf(string(colorRed), len(file.Files))
+	if len(file.Files) > 1 {
+		fmt.Printf(string(colorRed), "The file name is not unique")
+		return "", nil
+	}
+
+	return file.Files[0].Id, nil
 }
 
 // download file
@@ -722,12 +775,12 @@ func download(cmds []string) error {
 	return nil
 }
 
-
 // base query
 // name ...
-func userQuery() {
+func userQuery() *drive.FileList {
 	r := showResult(counter, drive.DriveScope)
 	pageToken = r.NextPageToken
+	return r
 }
 
 // show next page
@@ -766,8 +819,9 @@ func (ii *itemInfo) rm(id, types string) error {
 	}
 	return nil
 }
+
 // trash ...
-func (ii *itemInfo)trash(id, types string) error  {
+func (ii *itemInfo) trash(id, types string) error {
 	file, err := startSrv(drive.DriveScope).Files.Get(id).Do()
 	if err != nil {
 		log.Println("file or dir not exist: " + err.Error())
@@ -782,7 +836,7 @@ func (ii *itemInfo)trash(id, types string) error  {
 		return errors.New("The trashed item: item is not folder")
 	}
 
-	_, err = startSrv(drive.DriveScope).Files.Update(file.Id, &drive.File{Trashed: true,}).Do()
+	_, err = startSrv(drive.DriveScope).Files.Update(file.Id, &drive.File{Trashed: true}).Do()
 
 	if err != nil {
 		log.Println("file or dir trashed failed: " + err.Error())
@@ -791,13 +845,79 @@ func (ii *itemInfo)trash(id, types string) error  {
 	return nil
 }
 
-// move file
-func move() {
-	//TODO: move file
-	println("this is .. move")
-	// _, err = startSrv(drive.DriveScope).Files.Update(file.Id, &drive.File{Trashed: true,}).AddParents("").RemoveParents("").Fields("").Do()
-	
+// breakDown ...
+func breakDown(path string) []string {
+	return strings.Split(path, "/")
 }
+
+// move file
+func (ii *itemInfo) move(cmd string) error {
+	//TODO: move file
+	// println("this is .. move", cmd)
+	if !strings.Contains(cmd, ">") {
+		fmt.Printf(string(colorRed), "Wrong command format, please use \"h\" get help")
+		return errors.New("Wrong command format, please use \"h\" get help")
+	}
+	fil := strings.Split(strings.Split(cmd, "mv ")[1], ">")
+	iD, err := getSugId(allSug, strings.TrimSuffix(fil[0], " "))
+	if err != nil {
+		log.Println("file or dir not exist: " + err.Error())
+		return err
+	}
+	file, err := startSrv(drive.DriveScope).Files.Get(iD).Fields("id, name, mimeType, parents, createdTime").Do()
+	if err != nil {
+		log.Println("file or dir not exist: " + err.Error())
+		return err
+	}
+
+	if file.Id == ii.rootId {
+		return errors.New("The root folder should not be moved")
+	}
+
+	if file.MimeType == "application/vnd.google-apps.folder" {
+		fmt.Printf(string(colorGreen), file.Name, file.Id, file.MimeType, file.Parents, file.CreatedTime)
+	} else {
+		// fmt.Printf(string(colorCyan), file.Name, file.Id, file.MimeType, file.Parents , file.CreatedTime)
+		if len(breakDown(fil[1])) > 1 { // move to another folder
+			newParentName := strings.Trim(breakDown(fil[1])[len(breakDown(fil[1]))-2], " ") // move to another folder
+			newName := strings.Trim(breakDown(fil[1])[len(breakDown(fil[1]))-1], " ")       // change item name
+			iD, err := getSugId(allSug, newParentName)
+			if err != nil {
+				log.Println("file or dir not exist: " + err.Error())
+				return err
+			}
+
+			var parents string
+			if len(file.Parents) > 0 {
+				parents = file.Parents[0]
+			}
+			newFile, err := startSrv(drive.DriveScope).Files.Update(file.Id, &drive.File{
+				Name: newName,
+			}).AddParents(iD).
+				RemoveParents(parents).Do()
+			if err != nil {
+				fmt.Printf(string(colorRed), err.Error())
+				return err
+			}
+			fmt.Printf(string(colorYellow), file.Name, "->", path.Join(newParentName, newFile.Name))
+		} else {
+			newName := strings.Trim(breakDown(fil[1])[len(breakDown(fil[1]))-1], " ") // change item name
+			newFile, err := startSrv(drive.DriveScope).Files.Update(file.Id, &drive.File{
+				Name: newName,
+			}).Do()
+			// .AddParents(file.Id)
+			// RemoveParents(path.Join(file.item.Parents...)).
+			// Fields(fileInfoFields...).Do()
+			if err != nil {
+				fmt.Printf(string(colorRed), err.Error())
+				return err
+			}
+			fmt.Printf(string(colorYellow), file.Name, "->", newFile.Name)
+		}
+	}
+	return nil
+}
+
 // setPrefix ...
 func (ii *itemInfo) setPrefix(msgs string) {
 	// folderId := ii.path[len(ii.path)-1]
