@@ -13,6 +13,7 @@ require (
 	github.com/godoctor/godoctor v0.0.0-20200702010311-8433dcb3dc61 // indirect
 	github.com/gofrs/flock v0.7.1 // indirect
 	github.com/gogo/protobuf v1.3.1 // indirect
+	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golangci/check v0.0.0-20180506172741-cfe4005ccda2 // indirect
 	github.com/golangci/dupl v0.0.0-20180902072040-3e9179ac440a // indirect
 	github.com/golangci/go-misc v0.0.0-20180628070357-927a3d87b613 // indirect
