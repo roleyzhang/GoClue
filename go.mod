@@ -62,7 +62,7 @@ require (
 	golang.org/x/tools/gopls v0.4.3 // indirect
 	google.golang.org/api v0.29.0
 	google.golang.org/genproto v0.0.0-20200720141249-1244ee217b7e // indirect
-	google.golang.org/grpc v1.30.0 // indirect
+	google.golang.org/grpc v1.30.0
 	google.golang.org/grpc/examples v0.0.0-20200716233830-6dc7938fe875 // indirect
 	google.golang.org/grpc/security/advancedtls v0.0.0-20200716233830-6dc7938fe875 // indirect
 	google.golang.org/grpc/test/tools v0.0.0-20200716233830-6dc7938fe875 // indirect

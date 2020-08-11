@@ -18,6 +18,7 @@ import (
 	"google.golang.org/api/drive/v3"
 	// "google.golang.org/api/option"
 	"github.com/roleyzhang/GoClue/cmd"
+	// "github.com/roleyzhang/GoClue/utils"
 )
 
 func main() {
@@ -133,13 +134,19 @@ func completer(in prompt.Document) []prompt.Suggest {
 	if len(arrCommandStr) >= 1 {
 		switch arrCommandStr[0] {
 		case "d":
-			if fileSug != nil {
-				s = *fileSug
+			// if fileSug != nil {
+			// 	s = *fileSug
+			// }
+			if allSug != nil {
+				s = *allSug
 			}
 		case "dd":
 			if idfileSug != nil {
 				s = *idfileSug
 			}
+			// if allSug != nil {
+			// 	s = *allSug
+			// }
 		case "rm":
 			if fileSug != nil {
 				s = *fileSug

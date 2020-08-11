@@ -2,25 +2,20 @@ package cmd
 
 import (
 	"errors"
-	"fmt"
 	"github.com/golang/glog"
 	"io"
-	"io/ioutil"
-	"net/http"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
+	"fmt"
 	// "os/exec"
-	"encoding/json"
+	"golang.org/x/net/context"
 	"github.com/c-bata/go-prompt"
 	"github.com/dustin/go-humanize"
-	"golang.org/x/net/context"
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
+	"github.com/roleyzhang/GoClue/utils"
 	"google.golang.org/api/drive/v3"
-	"google.golang.org/api/option"
 )
 
 var qString string
@@ -79,7 +74,7 @@ func getSugId(sug *[]prompt.Suggest, text string) (string, error) {
 	}
 	qString := "name='" + text + "'" + " and trashed=false"
 
-	file, err := startSrv(drive.DriveScope).Files.List().
+	file, err := utils.StartSrv(drive.DriveScope).Files.List().
 		Q(qString).
 		PageSize(2).
 		Fields("nextPageToken, files(id, name, mimeType, owners, createdTime)").
@@ -111,30 +106,6 @@ func getSugInfo() func(folder prompt.Suggest) *[]prompt.Suggest {
 	}
 }
 
-func startSrv(scope string) *drive.Service {
-
-	b, err := ioutil.ReadFile("credentials.json")
-	if err != nil {
-		glog.Fatalf("Unable to read client secret file: %v", err)
-	}
-
-	// If modifying these scopes, delete your previously saved token.json.
-	// config, err := google.ConfigFromJSON(b, drive.DriveMetadataReadonlyScope)
-	// config, err := google.ConfigFromJSON(b, "https://www.googleapis.com/auth/drive")
-	config, err := google.ConfigFromJSON(b, scope)
-	if err != nil {
-		glog.Fatalf("Unable to parse client secret file to config: %v", err)
-	}
-	client := getClient(config)
-	// client.Get(url string)
-	// srv, err := drive.New(client)
-	ctx := context.Background()
-	srv, err := drive.NewService(ctx, option.WithHTTPClient(client))
-	if err != nil {
-		glog.Fatalf("Unable to retrieve Drive client: %v", err)
-	}
-	return srv
-}
 
 // breakDown ...
 func breakDown(path string) []string {
@@ -188,7 +159,7 @@ func (ii *ItemInfo) ShowResult(
 	}
 
 	glog.V(5).Infoln("qString: ", qString)
-	r, err := startSrv(scope).Files.List().
+	r, err := utils.StartSrv(scope).Files.List().
 		Q(qString).
 		PageSize(40).
 		Fields("nextPageToken, files(id, name, mimeType, owners, parents, createdTime)").
@@ -260,7 +231,7 @@ func PathGenerate(path string) {
 // rmd ... delete file by id
 func (ii *ItemInfo) Rmd(id, types string) error {
 	//TODO: delete file
-	file, err := startSrv(drive.DriveScope).Files.Get(id).Do()
+	file, err := utils.StartSrv(drive.DriveScope).Files.Get(id).Do()
 	if err != nil {
 		glog.Error("file or dir not exist: ", err.Error())
 		return err
@@ -274,7 +245,7 @@ func (ii *ItemInfo) Rmd(id, types string) error {
 		return errors.New("The delete item: item is not folder")
 	}
 
-	err = startSrv(drive.DriveScope).Files.Delete(id).Do()
+	err = utils.StartSrv(drive.DriveScope).Files.Delete(id).Do()
 
 	if err != nil {
 		glog.Errorln("file or dir delete failed: " + err.Error())
@@ -295,7 +266,7 @@ func (ii *ItemInfo) Rm(name, types string) error {
 	}
 	id = iD
 
-	file, err := startSrv(drive.DriveScope).Files.Get(id).Do()
+	file, err := utils.StartSrv(drive.DriveScope).Files.Get(id).Do()
 	if err != nil {
 		glog.Errorln("file or dir not exist: ", err.Error())
 		return err
@@ -309,7 +280,7 @@ func (ii *ItemInfo) Rm(name, types string) error {
 		return errors.New("The delete item: item is not folder")
 	}
 
-	err = startSrv(drive.DriveScope).Files.Delete(id).Do()
+	err = utils.StartSrv(drive.DriveScope).Files.Delete(id).Do()
 
 	if err != nil {
 		glog.Errorln("file or dir delete failed: ", err.Error())
@@ -330,7 +301,7 @@ func (ii *ItemInfo) Trash(name, types string) error {
 	}
 	id = iD
 
-	file, err := startSrv(drive.DriveScope).Files.Get(id).Do()
+	file, err := utils.StartSrv(drive.DriveScope).Files.Get(id).Do()
 	if err != nil {
 		glog.Errorln("file or dir not exist: ", err.Error())
 		return err
@@ -344,7 +315,7 @@ func (ii *ItemInfo) Trash(name, types string) error {
 		return errors.New("The trashed item: item is not folder")
 	}
 
-	_, err = startSrv(drive.DriveScope).Files.Update(file.Id, &drive.File{Trashed: true}).Do()
+	_, err = utils.StartSrv(drive.DriveScope).Files.Update(file.Id, &drive.File{Trashed: true}).Do()
 
 	if err != nil {
 		glog.Errorln("file or dir trashed failed: ", err.Error())
@@ -356,7 +327,7 @@ func (ii *ItemInfo) Trash(name, types string) error {
 
 // trash by id...
 func (ii *ItemInfo) Trashd(id, types string) error {
-	file, err := startSrv(drive.DriveScope).Files.Get(id).Do()
+	file, err := utils.StartSrv(drive.DriveScope).Files.Get(id).Do()
 	if err != nil {
 		glog.Errorln("file or dir not exist: ", err.Error())
 		return err
@@ -370,7 +341,7 @@ func (ii *ItemInfo) Trashd(id, types string) error {
 		return errors.New("The trashed item: item is not folder")
 	}
 
-	file, err = startSrv(drive.DriveScope).Files.Update(file.Id, &drive.File{Trashed: true}).Do()
+	file, err = utils.StartSrv(drive.DriveScope).Files.Update(file.Id, &drive.File{Trashed: true}).Do()
 
 	if err != nil {
 		glog.Errorln("file or dir trashed failed: ", err.Error())
@@ -398,7 +369,7 @@ func (ii *ItemInfo) Upload(file string) (*drive.File, error) {
 		Parents: []string{ii.ItemId},
 	}
 	// ufile, err := startSrv(drive.DriveScope).Files.Create(u).Media(fi).Do()
-	ufile, err := startSrv(drive.DriveScope).Files.
+	ufile, err := utils.StartSrv(drive.DriveScope).Files.
 		Create(u).
 		ResumableMedia(context.Background(), fi, fileInfo.Size(), "").
 		ProgressUpdater(func(now, size int64) { fmt.Printf("%d, %d\r", now, size) }).
@@ -416,7 +387,7 @@ func (ii *ItemInfo) CreateDir(name string) (*drive.File, error) {
 		MimeType: "application/vnd.google-apps.folder",
 		Parents:  []string{ii.ItemId},
 	}
-	dir, err := startSrv(drive.DriveScope).Files.Create(d).Do()
+	dir, err := utils.StartSrv(drive.DriveScope).Files.Create(d).Do()
 
 	if err != nil {
 		glog.Errorln("Could not create dir: ", err.Error())
@@ -430,7 +401,7 @@ func (ii *ItemInfo) CreateDir(name string) (*drive.File, error) {
 // getRoot ...
 func (ii *ItemInfo) GetRoot() {
 	dirInfo := getSugInfo()
-	item, err := startSrv(drive.DriveScope).
+	item, err := utils.StartSrv(drive.DriveScope).
 		// Files.Get(id).
 		Files.Get("root").
 		Fields("id, name, mimeType, parents, owners, createdTime").
@@ -453,7 +424,7 @@ func (ii *ItemInfo) GetRoot() {
 // getNode by id ...
 func (ii *ItemInfo) GetNoded(id string) {
 	// println(id)
-	item, err := startSrv(drive.DriveScope).
+	item, err := utils.StartSrv(drive.DriveScope).
 		Files.Get(id).
 		// Files.Get("root").
 		Fields("id, name, mimeType, parents, owners, createdTime").
@@ -491,7 +462,7 @@ func (ii *ItemInfo) GetNode(cmd string) {
 		}
 		id = iD
 	}
-	item, err := startSrv(drive.DriveScope).
+	item, err := utils.StartSrv(drive.DriveScope).
 		Files.Get(id).
 		// Files.Get("root").
 		Fields("id, name, mimeType, parents, owners, createdTime").
@@ -528,7 +499,7 @@ func (ii *ItemInfo) Move(cmd string) error {
 		glog.Errorln("file or dir not exist: " + err.Error())
 		return err
 	}
-	file, err := startSrv(drive.DriveScope).Files.Get(iD).Fields("id, name, mimeType, parents, createdTime").Do()
+	file, err := utils.StartSrv(drive.DriveScope).Files.Get(iD).Fields("id, name, mimeType, parents, createdTime").Do()
 	if err != nil {
 		glog.Errorln("file or dir not exist: ", err.Error())
 		return err
@@ -551,7 +522,7 @@ func (ii *ItemInfo) Move(cmd string) error {
 		if len(file.Parents) > 0 {
 			parents = file.Parents[0]
 		}
-		newFile, err := startSrv(drive.DriveScope).Files.Update(file.Id, &drive.File{
+		newFile, err := utils.StartSrv(drive.DriveScope).Files.Update(file.Id, &drive.File{
 			Name: newName,
 		}).AddParents(iD).
 			RemoveParents(parents).Do()
@@ -562,7 +533,7 @@ func (ii *ItemInfo) Move(cmd string) error {
 		fmt.Printf(string(colorYellow), file.Name, "->", path.Join(newParentName, newFile.Name))
 	} else { // change file name
 		newName := strings.Trim(breakDown(fil[1])[len(breakDown(fil[1]))-1], " ") // change item name
-		newFile, err := startSrv(drive.DriveScope).Files.Update(file.Id, &drive.File{
+		newFile, err := utils.StartSrv(drive.DriveScope).Files.Update(file.Id, &drive.File{
 			Name: newName,
 		}).Do()
 		// .AddParents(file.Id)
@@ -622,7 +593,7 @@ func GetSugDec(sug *[]prompt.Suggest, text string) string {
 func downld(id, target string) error {
 	glog.V(8).Info("this is download debug ", id, target)
 	// drive.DriveReadonlyScope
-	fgc := startSrv(drive.DriveScope).Files.Get(id)
+	fgc := utils.StartSrv(drive.DriveScope).Files.Get(id)
 	fgc.Header().Add("alt", "media")
 	resp, err := fgc.Download()
 
@@ -685,28 +656,28 @@ func Download(cmd string) error {
 	}
 	id = iD
 	//2 check the id whether is file or folder
-	file, err := startSrv(drive.DriveScope).Files.
-		Get(iD).Fields("id, name, mimeType, parents, createdTime").Do()
-	if err != nil {
-		glog.Errorln("file or dir not exist: ", err.Error())
-		return err
-	}
-	if file.MimeType == "application/vnd.google-apps.folder" {
-		glog.V(8).Info("download folder", file.Name, file.Properties)
-
-	}
-	// file, err := startSrv(drive.DriveScope).Files.Get(id).Do()
-	// if err != nil {
-	// 	glog.Errorln("file or dir not exist: ", err.Error())
-	// 	return err
-	// }
-
-	//3 start download
-	err = downld(id, fil[1])
+	// var fis, fods []string
+	files, folders, err := utils.GetFilesAndFolders(id, strings.Trim(fil[0], " "))
 	if err != nil {
 		glog.Errorln("Download failed: ", err.Error())
 		return err
 	}
+	for key, value := range files {
+			glog.V(6).Info("download files: ",key," : ", value)
+
+	}
+
+	for _, value := range folders {
+		glog.V(6).Info("download folders: ", value)
+
+	}
+	utils.ClearDownloadMap(files)
+	//3 start download
+	// err = downld(id, fil[1])
+	// if err != nil {
+	// 	glog.Errorln("Download failed: ", err.Error())
+	// 	return err
+	// }
 	return nil
 }
 
@@ -725,60 +696,3 @@ func Downloadd(cmds []string) error {
 	return nil
 }
 
-// Retrieve a token, saves the token, then returns the generated client.
-func getClient(config *oauth2.Config) *http.Client {
-	// The file token.json stores the user's access and refresh tokens, and is
-	// created automatically when the authorization flow completes for the first
-	// time.
-	tokFile := "token.json"
-	tok, err := tokenFromFile(tokFile)
-	if err != nil {
-		tok = getTokenFromWeb(config)
-		saveToken(tokFile, tok)
-	}
-	return config.Client(context.Background(), tok)
-}
-
-// Request a token from the web, then returns the retrieved token.
-func getTokenFromWeb(config *oauth2.Config) *oauth2.Token {
-	authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
-	fmt.Printf("Go to the following link in your browser then type the "+
-		"authorization code: \n%v\n", authURL)
-
-	var authCode string
-	if _, err := fmt.Scan(&authCode); err != nil {
-		glog.Fatalf("Unable to read authorization code %v", err)
-	}
-
-	tok, err := config.Exchange(context.TODO(), authCode)
-	if err != nil {
-		glog.Fatalf("Unable to retrieve token from web %v", err)
-	}
-	return tok
-}
-
-// Retrieves a token from a local file.
-func tokenFromFile(file string) (*oauth2.Token, error) {
-	f, err := os.Open(file)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	tok := &oauth2.Token{}
-	err = json.NewDecoder(f).Decode(tok)
-	return tok, err
-}
-
-// Saves a token to a file path.
-func saveToken(path string, token *oauth2.Token) {
-	fmt.Printf("Saving credential file to: %s\n", path)
-	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
-	if err != nil {
-		glog.Fatalf("Unable to cache oauth token: %v", err)
-	}
-	defer f.Close()
-	err = json.NewEncoder(f).Encode(token)
-	if err != nil {
-		glog.Fatalf("Json encode error: %v", err)
-	}
-}
