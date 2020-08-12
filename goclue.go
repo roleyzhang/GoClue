@@ -33,7 +33,8 @@ func main() {
 		executor,
 		completer,
 		prompt.OptionPrefix(">>> "),
-		prompt.OptionLivePrefix(changeLivePrefix),
+		// prompt.OptionLivePrefix(changeLivePrefix),
+		prompt.OptionLivePrefix(ii.SetPrefixx),
 		prompt.OptionTitle("GOCULE"),
 	)
 	p.Run()
@@ -349,9 +350,13 @@ func runCommand(commandStr string) {
 		switch arrCommandStr[0] {
 		case "q":
 			os.Exit(0)
-		case "login":
+		case "lo":
 			// service = startSrv()
-			println("this is login")
+			// println("this is login")
+			// cmd.Lo()
+			// cmd.BufferedChannel()
+			// cmd.Select()
+
 		case "mkdir":
 			println("this is mkdir")
 			if _, err := ii.CreateDir(arrCommandStr[1]); err != nil {
@@ -448,14 +453,14 @@ func runCommand(commandStr string) {
 				page[counter] = pageToken
 			}
 			next(counter)
-			setPrefix("- Page " + strconv.Itoa(counter), &ii)
+			cmd.SetPrefix("- Page " + strconv.Itoa(counter), &ii, msg)
 		case "p":
 			if counter > 0 {
 				counter--
 			}
 			pageToken = page[counter]
 			previous(counter)
-			setPrefix("- Page " + strconv.Itoa(counter), &ii)
+			cmd.SetPrefix("- Page " + strconv.Itoa(counter), &ii , msg)
 		default:
 			fmt.Printf(string(colorRed), "Please check your input or type \"h\" get help")
 			setPrefix("", &ii)

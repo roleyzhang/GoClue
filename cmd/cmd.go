@@ -2,19 +2,22 @@ package cmd
 
 import (
 	"errors"
-	"github.com/golang/glog"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
-	"fmt"
+	// "sync"
+
+	"github.com/golang/glog"
+
 	// "os/exec"
-	"golang.org/x/net/context"
 	"github.com/c-bata/go-prompt"
 	"github.com/dustin/go-humanize"
 	"github.com/roleyzhang/GoClue/utils"
+	"golang.org/x/net/context"
 	"google.golang.org/api/drive/v3"
 )
 
@@ -34,6 +37,11 @@ var colorYellow string
 var colorRed string
 
 var commands map[string]string
+
+var LivePrefixState *struct {
+	LivePrefix string
+	IsEnable   bool
+}
 
 type ItemInfo struct {
 	// item       *drive.File
@@ -106,7 +114,39 @@ func getSugInfo() func(folder prompt.Suggest) *[]prompt.Suggest {
 	}
 }
 
+//-----------------------------
+type Callback func(msg string)
 
+func SetPrefix(msgs string, ii *ItemInfo, callback Callback ) {
+	// glog.V(8).Info("SetPrefix: ",msgs, ii.ItemId, len(*DirSug) )
+	folderId := ii.ItemId
+	if DirSug != nil {
+		folderName := GetSugDec(DirSug, folderId)
+		callback(folderName + msgs)
+
+	}
+}
+
+
+func (ii *ItemInfo)SetPrefixx()(string, bool ) {
+	// glog.V(8).Info("SetPrefix: ",msgs, ii.ItemId, len(*DirSug) )
+	folderId := ii.ItemId
+	if DirSug != nil {
+		folderName := GetSugDec(DirSug, folderId)
+		return (folderName + "dwdw"), true
+
+	}
+	return ("dwdw"), true
+}
+
+
+// // msg ...
+// func msg(message string) {
+// 	// glog.V(8).Info("msg: ", message)
+// 	LivePrefixState.LivePrefix = message + ">>> "
+// 	LivePrefixState.IsEnable = true
+// }
+//-------------------------------
 // breakDown ...
 func breakDown(path string) []string {
 	return strings.Split(path, "/")
@@ -663,7 +703,7 @@ func Download(cmd string) error {
 		return err
 	}
 	for key, value := range files {
-			glog.V(6).Info("download files: ",key," : ", value)
+		glog.V(6).Info("download files: ", key, " : ", value)
 
 	}
 
@@ -696,3 +736,129 @@ func Downloadd(cmds []string) error {
 	return nil
 }
 
+//------------------------------TESTING BELOW
+// func Select() {
+// 	var c1, c2 chan int
+// 	// n1:= <- c1
+// 	// n2:= <- c2
+// 	select {
+// 	case n := <-c1:
+// 		glog.V(8).Info("receive from c1: ", n)
+// 	case n := <-c2:
+// 		glog.V(8).Info("receive from c2: ", n)
+// 	default:
+// 		glog.V(8).Info("receive from no one: ")
+
+// 	}
+
+// }
+
+/*
+async download method
+1. query function use go routine return task, if task failed then write into log
+2. use select to handle query successful task, which query task return firstly, then run download task
+*/
+//-------------phase 2
+// func doWorker(id int, c chan int, wg *sync.WaitGroup) {
+// 	for  n := range c {
+// 		glog.V(8).Infof("Worker %d receive %c\n", id, n)
+// 		// go func(){done <- true}()
+// 		wg.Done()
+// 	}
+// }
+
+// type worker struct  {
+// 	in chan int
+// 	// done chan bool
+// 	wg *sync.WaitGroup
+// }
+
+// // create worker channels
+// func createWorker(id int, wg *sync.WaitGroup) worker{
+// 	w := worker{
+// 		in: make(chan int),
+// 		wg: wg,
+// 	}
+// 	go doWorker(id, w.in, wg)
+// 	return w
+// }
+
+// // lo ...
+// func Lo() {
+// 	glog.V(8).Info("this is Lo Testing")
+// 	var wg sync.WaitGroup
+// 	wg.Add(20)
+// 	var workers [10]worker
+// 	for i := 0; i < 10; i++ {
+// 		// channels[i] = make(chan int)
+// 		// go worker(i, channels[i])
+// 		workers[i] = createWorker(i, &wg)
+// 	}
+// 	for i, worker := range workers {
+// 		worker.in <- 'a' + i
+// 	}
+// 	for i, worker := range workers {
+// 		worker.in <- 'A' + i
+// 	}
+// 	wg.Wait()
+// }
+
+//-------------phase 1
+// func worker(id int, c chan int) {
+// 	// for {
+// 	// 	// n := <-c
+// 	// 	glog.V(8).Infof("Worker %d receive %c\n", id, <-c)
+// 	// }
+// 	for  n := range c {
+// 		// n, ok := <-c
+// 		// if !ok {
+// 		// 	break
+// 		// }
+// 		glog.V(8).Infof("Worker %d receive %c\n", id, n)
+// 	}
+// }
+
+// // create worker channels
+// func createWorker(id int) chan int {
+// 	c := make(chan int)
+// 	// go func() {
+// 	// 	for {
+// 	// 		glog.V(8).Infof("Worker %d receive %c\n", id, <-c)
+// 	// 	}
+// 	// }()
+// 	go worker(id, c)
+// 	return c
+// }
+
+// // create bufferedChannel
+// func BufferedChannel() {
+// 	glog.V(8).Infof("BufferedChannel:")
+// 	c := make(chan int, 3)
+// 	go worker(0, c)
+// 	c <- 'a'
+// 	c <- 'b'
+// 	c <- 'c'
+// 	c <- 'd'
+// 	close(c)
+// }
+
+// // lo ...
+// func Lo() {
+// 	glog.V(8).Info("this is Lo Testing")
+// 	var channels [10]chan int
+// 	for i := 0; i < 10; i++ {
+// 		// channels[i] = make(chan int)
+// 		// go worker(i, channels[i])
+// 		channels[i] = createWorker(i)
+// 	}
+// 	for i := 0; i < 10; i++ {
+// 		channels[i] <- 'a' + i
+// 	}
+// 	for i := 0; i < 10; i++ {
+// 		channels[i] <- 'A' + i
+// 	}
+// 	// c := make(chan int)
+// 	// c <- 1
+// 	// c <- 2
+// 	time.Sleep(time.Millisecond)
+// }
