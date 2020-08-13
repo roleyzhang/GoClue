@@ -34,7 +34,7 @@ func main() {
 		completer,
 		prompt.OptionPrefix(">>> "),
 		// prompt.OptionLivePrefix(changeLivePrefix),
-		prompt.OptionLivePrefix(ii.SetPrefixx),
+		prompt.OptionLivePrefix(cmd.Ps.SetDynamicPrefix),
 		prompt.OptionTitle("GOCULE"),
 	)
 	p.Run()
@@ -270,14 +270,14 @@ func completer(in prompt.Document) []prompt.Suggest {
 	return prompt.FilterHasPrefix(s, in.GetWordBeforeCursor(), true)
 }
 
-var LivePrefixState struct {
-	LivePrefix string
-	IsEnable   bool
-}
+// var LivePrefixState struct {
+// 	LivePrefix string
+// 	IsEnable   bool
+// }
 
-func changeLivePrefix() (string, bool) {
-	return LivePrefixState.LivePrefix, LivePrefixState.IsEnable
-}
+// func changeLivePrefix() (string, bool) {
+// 	return LivePrefixState.LivePrefix, LivePrefixState.IsEnable
+// }
 
 //--------------------------------------------
 type command struct {
@@ -333,12 +333,8 @@ func init() {
 	// for prompt suggest
 	cmd.PathGenerate("HOME")
 
-	ii = cmd.ItemInfo{
-		Path:   make(map[string]string),
-		RootId: "",
-		ItemId: "",
-	}
-	ii.GetRoot()
+	ii = cmd.Ii
+	cmd.Ps.GetRoot(&ii)
 }
 
 // run the command which input by user
@@ -353,7 +349,7 @@ func runCommand(commandStr string) {
 		case "lo":
 			// service = startSrv()
 			// println("this is login")
-			// cmd.Lo()
+			cmd.Lo()
 			// cmd.BufferedChannel()
 			// cmd.Select()
 
@@ -362,22 +358,21 @@ func runCommand(commandStr string) {
 			if _, err := ii.CreateDir(arrCommandStr[1]); err != nil {
 				glog.Error("Can not create folder" + err.Error())
 			}
-			setPrefix("", &ii)
+			cmd.Ps.SetPrefix("")
 		case "cd":
 			// println("this is cd")
 			// ii.getNode(arrCommandStr[1])
 			ii.GetNode(commandStr)
-			// ii.setPrefix("")
-			setPrefix("", &ii)
+			cmd.Ps.SetPrefix("")
 		case "cdd":
 			// println("this is cd")
 			ii.GetNoded(arrCommandStr[1])
-			setPrefix("", &ii)
+			cmd.Ps.SetPrefix("")
 		case "mv":
 			if err := ii.Move(commandStr); err != nil {
 				glog.Error("Can not move file" + err.Error())
 			}
-			setPrefix("", &ii)
+			cmd.Ps.SetPrefix("")
 		case "tr":
 			if arrCommandStr[1] == "-r" {
 				if err := ii.Trash(arrCommandStr[2], arrCommandStr[1]); err != nil {
@@ -388,7 +383,7 @@ func runCommand(commandStr string) {
 					glog.Error("Can not delete file" + err.Error())
 				}
 			}
-			setPrefix("", &ii)
+			cmd.Ps.SetPrefix("")
 		case "trd":
 			if arrCommandStr[1] == "-r" {
 				if err := ii.Trashd(arrCommandStr[2], arrCommandStr[1]); err != nil {
@@ -399,7 +394,7 @@ func runCommand(commandStr string) {
 					glog.Error("Can not delete file" + err.Error())
 				}
 			}
-			setPrefix("", &ii)
+			cmd.Ps.SetPrefix("")
 		case "rm":
 			if arrCommandStr[1] == "-r" {
 				if err := ii.Rm(arrCommandStr[2], arrCommandStr[1]); err != nil {
@@ -410,7 +405,7 @@ func runCommand(commandStr string) {
 					glog.Error("Can not delete file" + err.Error())
 				}
 			}
-			setPrefix("", &ii)
+			cmd.Ps.SetPrefix("")
 		case "rmd":
 			if arrCommandStr[1] == "-r" {
 				if err := ii.Rmd(arrCommandStr[2], arrCommandStr[1]); err != nil {
@@ -421,49 +416,49 @@ func runCommand(commandStr string) {
 					glog.Error("Can not delete file" + err.Error())
 				}
 			}
-			setPrefix("", &ii)
+			cmd.Ps.SetPrefix("")
 		case "d":
 			err := cmd.Download(commandStr)
 			if err != nil {
 				glog.Errorf("Unable to download files: %v", err.Error())
 			}
-			setPrefix("", &ii)
+			cmd.Ps.SetPrefix("")
 		case "dd":
 			err := cmd.Downloadd(arrCommandStr)
 			if err != nil {
 				glog.Errorf("Unable to download files: %v", err.Error())
 			}
-			setPrefix("", &ii)
+			cmd.Ps.SetPrefix("")
 		case "ls":
 			list(arrCommandStr)
-			setPrefix("", &ii)
+			cmd.Ps.SetPrefix("")
 		case "u":
 			if _, err := ii.Upload(commandStr); err != nil {
 				glog.Error("Can not upload file" + err.Error())
 			}
-			setPrefix("", &ii)
+			cmd.Ps.SetPrefix("")
 		case "h":
 			for _, cmd := range allCommands {
 				fmt.Printf("%6s: %s %s \n", cmd.name, cmd.param, cmd.tip)
 			}
-			setPrefix("", &ii)
+			cmd.Ps.SetPrefix("")
 		case "n":
 			counter++
 			if page[counter] == "" {
 				page[counter] = pageToken
 			}
 			next(counter)
-			cmd.SetPrefix("- Page " + strconv.Itoa(counter), &ii, msg)
+			cmd.Ps.SetPrefix("- Page " + strconv.Itoa(counter))
 		case "p":
 			if counter > 0 {
 				counter--
 			}
 			pageToken = page[counter]
 			previous(counter)
-			cmd.SetPrefix("- Page " + strconv.Itoa(counter), &ii , msg)
+			cmd.Ps.SetPrefix("- Page " + strconv.Itoa(counter))
 		default:
 			fmt.Printf(string(colorRed), "Please check your input or type \"h\" get help")
-			setPrefix("", &ii)
+			cmd.Ps.SetPrefix("")
 		}
 
 	}
@@ -472,21 +467,21 @@ func runCommand(commandStr string) {
 //------------
 
 // setprefix ...
-func setPrefix(msgs string, ii *cmd.ItemInfo) {
-	// folderId := ii.path[len(ii.path)-1]
-	// fmt.Println(ii.itemId)
-	folderId := ii.ItemId
-	if dirSug != nil {
-		folderName := cmd.GetSugDec(dirSug, folderId)
-		msg(folderName + msgs)
-	}
-}
+// func setPrefix(msgs string, ii *cmd.ItemInfo) {
+// 	// folderId := ii.path[len(ii.path)-1]
+// 	// fmt.Println(ii.itemId)
+// 	folderId := ii.ItemId
+// 	if dirSug != nil {
+// 		folderName := cmd.GetSugDec(dirSug, folderId)
+// 		msg(folderName + msgs)
+// 	}
+// }
 
-// msg ...
-func msg(message string) {
-	LivePrefixState.LivePrefix = message + ">>> "
-	LivePrefixState.IsEnable = true
-}
+// // msg ...
+// func msg(message string) {
+// 	LivePrefixState.LivePrefix = message + ">>> "
+// 	LivePrefixState.IsEnable = true
+// }
 
 // func startSrv(scope string) *drive.Service {
 

@@ -9,8 +9,9 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	// "time"
 	// "sync"
-
+	// "strconv"
 	"github.com/golang/glog"
 
 	// "os/exec"
@@ -38,16 +39,22 @@ var colorRed string
 
 var commands map[string]string
 
-var LivePrefixState *struct {
-	LivePrefix string
-	IsEnable   bool
-}
+var Ps PromptStyle
+
+var Ii ItemInfo
 
 type ItemInfo struct {
 	// item       *drive.File
 	Path   map[string]string
 	RootId string
 	ItemId string
+}
+
+type PromptStyle struct {
+	Pre      string
+	Gap      string
+	FolderId string
+	Info     string
 }
 
 func init() {
@@ -68,6 +75,19 @@ func init() {
 	commands["n"] = "name contains '$' and trashed=false"
 	commands["tr"] = "trashed=true"
 	commands["c"] = "fullText contains '$' and trashed=false"
+
+	Ii = ItemInfo{
+		Path:   make(map[string]string),
+		RootId: "",
+		ItemId: "",
+	}
+
+	Ps = PromptStyle{
+		Pre:      "[$1 $2]",
+		Gap:      ">>>",
+		FolderId: "",
+		Info:     "",
+	}
 }
 
 // getSugId ...
@@ -115,30 +135,61 @@ func getSugInfo() func(folder prompt.Suggest) *[]prompt.Suggest {
 }
 
 //-----------------------------
-type Callback func(msg string)
+// type Callback func(msg string)
 
-func SetPrefix(msgs string, ii *ItemInfo, callback Callback ) {
-	// glog.V(8).Info("SetPrefix: ",msgs, ii.ItemId, len(*DirSug) )
-	folderId := ii.ItemId
-	if DirSug != nil {
-		folderName := GetSugDec(DirSug, folderId)
-		callback(folderName + msgs)
+// func SetPrefix(msgs string, ii *ItemInfo, callback Callback ) {
+// 	// glog.V(8).Info("SetPrefix: ",msgs, ii.ItemId, len(*DirSug) )
+// 	folderId := ii.ItemId
+// 	if DirSug != nil {
+// 		folderName := GetSugDec(DirSug, folderId)
+// 		callback(folderName + msgs)
 
-	}
+// 	}
+// }
+
+func (ps *PromptStyle) SetPrefix(msgs string) {
+	ps.Info = msgs
 }
 
-
-func (ii *ItemInfo)SetPrefixx()(string, bool ) {
+func (ps *PromptStyle) SetDynamicPrefix() (string, bool) {
 	// glog.V(8).Info("SetPrefix: ",msgs, ii.ItemId, len(*DirSug) )
-	folderId := ii.ItemId
+	var result string
 	if DirSug != nil {
-		folderName := GetSugDec(DirSug, folderId)
-		return (folderName + "dwdw"), true
-
+		folderName := GetSugDec(DirSug, ps.FolderId)
+		value := ps.Pre
+		r := strings.NewReplacer(
+			"$1", ps.Info,
+			"$2", folderName,
+		)
+		result = r.Replace(value)
+		return (result + ps.Gap), true
 	}
-	return ("dwdw"), true
+	return (result + ps.Gap), true
 }
 
+// getRoot ...
+func (ps *PromptStyle) GetRoot(ii *ItemInfo) {
+	dirInfo := getSugInfo()
+	item, err := utils.StartSrv(drive.DriveScope).
+		// Files.Get(id).
+		Files.Get("root").
+		Fields("id, name, mimeType").
+		Do()
+	if err != nil {
+		// glog.("shit happened: ", err.Error())
+		glog.Fatalf("Unable to retrieve root: %v", err)
+		// return nil
+	}
+	if item.MimeType == "application/vnd.google-apps.folder" {
+		ii.Path[item.Id] = item.Name
+		ii.ItemId = item.Id
+		ii.RootId = item.Id
+		ps.FolderId = item.Id
+		// setting the prompt.Suggest
+		s2 := prompt.Suggest{Text: item.Name, Description: item.Id}
+		DirSug = dirInfo(s2)
+	}
+}
 
 // // msg ...
 // func msg(message string) {
@@ -438,28 +489,28 @@ func (ii *ItemInfo) CreateDir(name string) (*drive.File, error) {
 	return dir, nil
 }
 
-// getRoot ...
-func (ii *ItemInfo) GetRoot() {
-	dirInfo := getSugInfo()
-	item, err := utils.StartSrv(drive.DriveScope).
-		// Files.Get(id).
-		Files.Get("root").
-		Fields("id, name, mimeType, parents, owners, createdTime").
-		Do()
-	if err != nil {
-		println("shit happened: ", err.Error())
-		glog.Fatalf("Unable to retrieve root: %v", err)
-		// return nil
-	}
-	if item.MimeType == "application/vnd.google-apps.folder" {
-		ii.Path[item.Id] = item.Name
-		ii.ItemId = item.Id
-		ii.RootId = item.Id
-		// setting the prompt.Suggest
-		s2 := prompt.Suggest{Text: item.Name, Description: item.Id}
-		DirSug = dirInfo(s2)
-	}
-}
+// // getRoot ...
+// func (ii *ItemInfo) GetRoot() {
+// 	dirInfo := getSugInfo()
+// 	item, err := utils.StartSrv(drive.DriveScope).
+// 		// Files.Get(id).
+// 		Files.Get("root").
+// 		Fields("id, name, mimeType, parents, owners, createdTime").
+// 		Do()
+// 	if err != nil {
+// 		println("shit happened: ", err.Error())
+// 		glog.Fatalf("Unable to retrieve root: %v", err)
+// 		// return nil
+// 	}
+// 	if item.MimeType == "application/vnd.google-apps.folder" {
+// 		ii.Path[item.Id] = item.Name
+// 		ii.ItemId = item.Id
+// 		ii.RootId = item.Id
+// 		// setting the prompt.Suggest
+// 		s2 := prompt.Suggest{Text: item.Name, Description: item.Id}
+// 		DirSug = dirInfo(s2)
+// 	}
+// }
 
 // getNode by id ...
 func (ii *ItemInfo) GetNoded(id string) {
@@ -480,6 +531,7 @@ func (ii *ItemInfo) GetNoded(id string) {
 		if id == "root" {
 			ii.RootId = item.Id
 		}
+		Ps.FolderId = item.Id
 	}
 }
 
@@ -518,6 +570,7 @@ func (ii *ItemInfo) GetNode(cmd string) {
 		if id == "root" {
 			ii.RootId = item.Id
 		}
+		Ps.FolderId = item.Id
 
 		// setting the prompt.Suggest
 		s2 := prompt.Suggest{Text: item.Name, Description: item.Id}
@@ -737,19 +790,158 @@ func Downloadd(cmds []string) error {
 }
 
 //------------------------------TESTING BELOW
-// func Select() {
-// 	var c1, c2 chan int
-// 	// n1:= <- c1
-// 	// n2:= <- c2
-// 	select {
-// 	case n := <-c1:
-// 		glog.V(8).Info("receive from c1: ", n)
-// 	case n := <-c2:
-// 		glog.V(8).Info("receive from c2: ", n)
-// 	default:
-// 		glog.V(8).Info("receive from no one: ")
+func recursiveCall(id string, chF, chD chan string) {
+	// product += num
 
+	// if num == 1 {
+	//     ch <- product
+	//     return
+	// }
+	// pthSep := string(os.PathSeparator)
+	qString := "'" + id + "' in parents"
+	item, err := utils.StartSrv(drive.DriveScope).Files.List().
+		Q(qString).PageSize(40).
+		Fields("nextPageToken, files(id, name, mimeType)").
+		Do()
+	if err != nil {
+		glog.Errorln("file or dir not exist: ", err.Error())
+	}
+	for _, file := range item.Files {
+		if file.MimeType == "application/vnd.google-apps.folder" {
+			chD <- file.Id
+			go recursiveCall(file.Id, chF, chD)
+			glog.V(8).Info("D: ", file.Id )
+		} else {
+			chF <- file.Id
+			glog.V(8).Info("F: ", file.Id )
+		}
+	}
+
+}
+
+func Lo() {
+	chF := make(chan string)
+	chD := make(chan string)
+	go recursiveCall("19YMYxawcjse0IcqKHrJYyx7yDEA_SLEA", chF, chD)
+	file := <-chF
+	folder := <-chD
+	glog.V(8).Info("F: ", file , " D: ", folder)
+}
+
+//-------------phase 3
+// func worker(id int, c chan string) {
+// 	for n := range c {
+// 		time.Sleep(time.Second)
+// 		if id ==0 {
+// 			glog.V(8).Infoln("Receiced cd: ", n)
+// 		}
+// 		if id ==1 {
+// 			glog.V(8).Infoln("Receiced cf: ", n)
+
+// 		}
 // 	}
+// }
+
+// func createWorker(id int) chan<- string{
+// 	c := make(chan string)
+// 	go worker(id, c)
+// 	return c
+// }
+
+// func checkDrvData(id string) (c1, c2 chan string){
+// 	cd := make(chan string)
+// 	cf := make(chan string)
+// 	// c2 := make(chan string)
+// 	qString := "'" + id + "' in parents"
+// 	go func(string){
+// 		item, err := utils.StartSrv(drive.DriveScope).Files.List().
+// 			Q(qString).PageSize(40). //"nextPageToken, files(id, name, mimeType, parents)")
+// 		Fields("nextPageToken, files(id, name, mimeType)").
+// 		Do()
+// 		if err != nil {
+// 			glog.Errorln("file or dir not exist: ", err.Error())
+// 			// return nil
+// 		}
+// 		for _, file := range item.Files {
+// 			if file.MimeType == "application/vnd.google-apps.folder" {
+// 				// pat := path + pthSep + file.Name
+// 				// glog.V(8).Info("D: ", pat)
+// 				// folders = append(folders, pat)
+// 				// if err != nil {
+// 				// 	glog.Errorln("file or dir not exist: ", err.Error())
+// 				// 	return nil, err
+// 				// }
+// 				glog.V(8).Info("D: ", file.Id +":" + file.Name)
+// 				cd <- file.Id+":" + file.Name
+// 				// cd, cf = checkDrvData(file.Id )
+// 			} else {
+// 				// files = filesFromSrv(path, file.Id, file.Name)
+// 				glog.V(8).Info("F: ", file.Id +":" + file.Name)
+// 				Ps.SetPrefix(file.Id +":" + file.Name)
+// 				// files = append(files, path+pthSep+file.Name)
+// 				cf <- file.Id +":" + file.Name
+// 			}
+// 		}
+// 	}(qString)
+// 	return cd, cf
+// }
+
+// func Lo(){
+
+// 	// checkDrvData("19YMYxawcjse0IcqKHrJYyx7yDEA_SLEA")
+// 	cd,cf := checkDrvData("19YMYxawcjse0IcqKHrJYyx7yDEA_SLEA")
+// 	var worker = createWorker(0)
+// 	var worker2= createWorker(1)
+
+// 	var values []string
+// 	var values2 []string
+// 	var activeW chan <- string
+// 	var activeV string
+// 	var activeW2 chan <- string
+// 	var activeV2 string
+// 	if len(values) >0 {
+// 		activeW = worker
+// 		activeV = values[0]
+// 	}
+// 	if len(values2) >0 {
+// 		activeW2 = worker2
+// 		activeV2 = values2[0]
+// 	}
+// 	tick := time.Tick(time.Second)
+
+// 	for {
+// 		select {
+// 		case n:= <-cd:
+// 			glog.V(8).Infoln("Receiced cd: ", n)
+// 			values = append(values, n)
+// 		case n:= <-cf:
+// 			glog.V(8).Infoln("Receiced cf: ", n)
+// 			values2 = append(values2, n)
+// 		case activeW <- activeV:
+// 			values = values[1:]
+// 		case activeW2 <- activeV2:
+// 			values2 = values2[1:]
+// 		case <-tick:
+// 			fmt.Println(
+// 				"queue len =", len(values), len(values2))
+
+// 		}
+// 	}
+// }
+// func Select() {
+// 	Ps.SetPrefix("SELECT")
+// // 	var c1, c2 chan int
+// // 	// n1:= <- c1
+// // 	// n2:= <- c2
+// // 	select {
+// // 	case n := <-c1:
+// // 		glog.V(8).Info("receive from c1: ", n)
+// // 	case n := <-c2:
+// // 		glog.V(8).Info("receive from c2: ", n)
+// // 	default:
+// // 		glog.V(8).Info("receive from no one: ")
+
+// // 	}
 
 // }
 
@@ -763,6 +955,7 @@ async download method
 // 	for  n := range c {
 // 		glog.V(8).Infof("Worker %d receive %c\n", id, n)
 // 		// go func(){done <- true}()
+// 		Ps.SetPrefix(strconv.Itoa(n)+ strconv.Itoa(id))
 // 		wg.Done()
 // 	}
 // }
