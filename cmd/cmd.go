@@ -4,12 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	// "math/rand"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
-	// "time"
+	"time"
 	// "sync"
 	// "strconv"
 	"github.com/golang/glog"
@@ -790,43 +791,171 @@ func Downloadd(cmds []string) error {
 }
 
 //------------------------------TESTING BELOW
-func recursiveCall(id string, chF, chD chan string) {
-	// product += num
-
-	// if num == 1 {
-	//     ch <- product
-	//     return
-	// }
-	// pthSep := string(os.PathSeparator)
-	qString := "'" + id + "' in parents"
-	item, err := utils.StartSrv(drive.DriveScope).Files.List().
-		Q(qString).PageSize(40).
-		Fields("nextPageToken, files(id, name, mimeType)").
-		Do()
-	if err != nil {
-		glog.Errorln("file or dir not exist: ", err.Error())
-	}
-	for _, file := range item.Files {
-		if file.MimeType == "application/vnd.google-apps.folder" {
-			chD <- file.Id
-			go recursiveCall(file.Id, chF, chD)
-			glog.V(8).Info("D: ", file.Id )
-		} else {
-			chF <- file.Id
-			glog.V(8).Info("F: ", file.Id )
+func generator(id string, out chan int)  {
+	// out := make(chan int, 50)
+	go func() {
+		qString := "'" + id + "' in parents"
+		// glog.V(8).Info("B1: ", qString)
+		item, err := utils.StartSrv(drive.DriveScope).Files.List().
+			Q(qString).PageSize(40).
+			Fields("nextPageToken, files(id, name, mimeType)").
+			Do()
+		// glog.V(8).Info("B2: ", item.Files)
+		if err != nil {
+			glog.Errorln("file or dir not exist: ", err.Error())
 		}
-	}
+		// glog.V(8).Info("B3: ")
+		for _, file := range item.Files {
+			// glog.V(8).Info("B4: ")
+			if file.MimeType == "application/vnd.google-apps.folder" {
+				// glog.V(8).Info("B5: ")
+				// chD <- file.Id + " : " + file.Name
+				out <- 6
+				glog.V(8).Info("D----: ", file.Id," : ", file.Name)
+				go generator(file.Id, out)
+			} else {
+				// glog.V(8).Info("B6: ")
+				// chF <- file.Id + " : " + file.Name
+				out <- 3
+				glog.V(8).Info("F: ", file.Id," : ", file.Name )
+			}
+		}
+		// glog.V(8).Info("B7: ")
 
+		// i := 0
+		// for {
+		// 	time.Sleep(
+		// 		time.Duration(rand.Intn(1500)) *
+		// 			time.Millisecond)
+		// 	out <- i
+		// 	i++
+		// }
+	}()
+	// return out
+}
+
+func worker(id int, c chan int) {
+	for n := range c {
+		time.Sleep(time.Second)
+		fmt.Printf("Worker %d received %d\n",
+			id, n)
+	}
+}
+
+func createWorker(id int) chan<- int {
+	c := make(chan int)
+	go worker(id, c)
+	return c
 }
 
 func Lo() {
-	chF := make(chan string)
-	chD := make(chan string)
-	go recursiveCall("19YMYxawcjse0IcqKHrJYyx7yDEA_SLEA", chF, chD)
-	file := <-chF
-	folder := <-chD
-	glog.V(8).Info("F: ", file , " D: ", folder)
+
+	out := make(chan int, 40)
+	generator("19YMYxawcjse0IcqKHrJYyx7yDEA_SLEA", out)
+	var c1 = out
+		// generator("19YMYxawcjse0IcqKHrJYyx7yDEA_SLEA")
+	var worker = createWorker(0)
+
+	var values []int
+	tm := time.After(59 * time.Second)
+	tick := time.Tick(time.Second)
+	for {
+		//fmt.Println("  c1  ", c1)
+		//fmt.Println("  c2  ", c2)
+		var activeWorker chan<- int
+		var activeValue int
+		if len(values) > 0 {
+			activeWorker = worker
+			activeValue = values[0]
+		}
+
+		select {
+		case n := <-c1:
+			values = append(values, n)
+		// case n := <-c2:
+		// 	values = append(values, n)
+		case activeWorker <- activeValue:
+			values = values[1:]
+
+		case <-time.After(800 * time.Millisecond):
+			fmt.Println("timeout")
+		case <-tick:
+			fmt.Println(
+				"queue len =", len(values))
+		case <-tm:
+			fmt.Println("bye")
+			return
+		}
+	}
 }
+
+//-------------phase 4
+// func recursiveCall(id string, chF, chD chan string) {
+// 	// glog.V(8).Info("B: ")
+// 	// product += num
+
+// 	// if num == 1 {
+// 	//     ch <- product
+// 	//     return
+// 	// }
+// 	// pthSep := string(os.PathSeparator)
+// 	qString := "'" + id + "' in parents"
+// 	glog.V(8).Info("B1: ", qString)
+// 	item, err := utils.StartSrv(drive.DriveScope).Files.List().
+// 		Q(qString).PageSize(40).
+// 		Fields("nextPageToken, files(id, name, mimeType)").
+// 		Do()
+// 	// glog.V(8).Info("B2: ", item.Files)
+// 	if err != nil {
+// 		glog.Errorln("file or dir not exist: ", err.Error())
+// 	}
+// 	// glog.V(8).Info("B3: ")
+// 	for _, file := range item.Files {
+// 		// glog.V(8).Info("B4: ")
+// 		if file.MimeType == "application/vnd.google-apps.folder" {
+// 			// glog.V(8).Info("B5: ")
+// 			chD <- file.Id + " : " + file.Name
+// 			glog.V(8).Info("D----: ", file.Id, file.Name )
+// 			go recursiveCall(file.Id, chF, chD)
+// 		} else {
+// 			// glog.V(8).Info("B6: ")
+// 			chF <- file.Id + " : " + file.Name
+// 			// glog.V(8).Info("F: ", file.Id, file.Name )
+// 		}
+// 	}
+// 	// glog.V(8).Info("B7: ")
+
+// }
+
+// func Lo() {
+// 	chF := make(chan string, 40)
+// 	chD := make(chan string, 40)
+// 	go recursiveCall("19YMYxawcjse0IcqKHrJYyx7yDEA_SLEA", chF, chD)
+// 	for n := range chF {
+// 		go func(n string) {
+// 			// file := <-n
+// 			glog.V(8).Info("F: ", n)
+// 		}(n)
+
+// 	}
+// 	for n := range chD {
+// 		go func(n string) {
+// 			// file := <-n
+// 			// glog.V(8).Info("F: ", n)
+// 			glog.V(8).Info("D: ", n)
+// 		}(n)
+// 	}
+
+// 	// close(chF)
+// 	// close(chD)
+// 	// for{
+// 	// 	file := <-chF
+// 	// 	folder := <-chD
+// 	// 	glog.V(8).Info("F: ", file , " D: ", folder)
+// 	// 	// close(chF)
+// 	// 	// close(chD)
+// 	// }
+// }
 
 //-------------phase 3
 // func worker(id int, c chan string) {
@@ -848,41 +977,39 @@ func Lo() {
 // 	return c
 // }
 
-// func checkDrvData(id string) (c1, c2 chan string){
-// 	cd := make(chan string)
-// 	cf := make(chan string)
+// func checkDrvData(id string) (c1, c2 chan string) {
+// 	cd := make(chan string,40)
+// 	cf := make(chan string,40)
 // 	// c2 := make(chan string)
 // 	qString := "'" + id + "' in parents"
-// 	go func(string){
-// 		item, err := utils.StartSrv(drive.DriveScope).Files.List().
-// 			Q(qString).PageSize(40). //"nextPageToken, files(id, name, mimeType, parents)")
+// 	item, err := utils.StartSrv(drive.DriveScope).Files.List().
+// 		Q(qString).PageSize(40).
 // 		Fields("nextPageToken, files(id, name, mimeType)").
 // 		Do()
-// 		if err != nil {
-// 			glog.Errorln("file or dir not exist: ", err.Error())
-// 			// return nil
+// 	if err != nil {
+// 		glog.Errorln("file or dir not exist: ", err.Error())
+// 		// return nil
+// 	}
+// 	for _, file := range item.Files {
+// 		if file.MimeType == "application/vnd.google-apps.folder" {
+// 			// pat := path + pthSep + file.Name
+// 			// glog.V(8).Info("D: ", pat)
+// 			// folders = append(folders, pat)
+// 			// if err != nil {
+// 			// 	glog.Errorln("file or dir not exist: ", err.Error())
+// 			// 	return nil, err
+// 			// }
+// 			glog.V(8).Info("D: ", file.Id+":"+file.Name)
+// 			cd <- file.Id + ":" + file.Name
+// 			go checkDrvData(file.Id )
+// 		} else {
+// 			// files = filesFromSrv(path, file.Id, file.Name)
+// 			glog.V(8).Info("F: ", file.Id+":"+file.Name)
+// 			Ps.SetPrefix(file.Id + ":" + file.Name)
+// 			// files = append(files, path+pthSep+file.Name)
+// 			cf <- file.Id + ":" + file.Name
 // 		}
-// 		for _, file := range item.Files {
-// 			if file.MimeType == "application/vnd.google-apps.folder" {
-// 				// pat := path + pthSep + file.Name
-// 				// glog.V(8).Info("D: ", pat)
-// 				// folders = append(folders, pat)
-// 				// if err != nil {
-// 				// 	glog.Errorln("file or dir not exist: ", err.Error())
-// 				// 	return nil, err
-// 				// }
-// 				glog.V(8).Info("D: ", file.Id +":" + file.Name)
-// 				cd <- file.Id+":" + file.Name
-// 				// cd, cf = checkDrvData(file.Id )
-// 			} else {
-// 				// files = filesFromSrv(path, file.Id, file.Name)
-// 				glog.V(8).Info("F: ", file.Id +":" + file.Name)
-// 				Ps.SetPrefix(file.Id +":" + file.Name)
-// 				// files = append(files, path+pthSep+file.Name)
-// 				cf <- file.Id +":" + file.Name
-// 			}
-// 		}
-// 	}(qString)
+// 	}
 // 	return cd, cf
 // }
 
