@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+
 	// "math/rand"
 	"os"
 	"os/exec"
@@ -11,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
 	// "sync"
 	// "strconv"
 	"github.com/golang/glog"
@@ -852,17 +854,19 @@ func Lo() {
 
 	out := make(chan string)
 	generator("19YMYxawcjse0IcqKHrJYyx7yDEA_SLEA", "ioiok", out)
-	var c1 = out
+	// close(out)
+	// var c1 = out
 	// generator("19YMYxawcjse0IcqKHrJYyx7yDEA_SLEA")
 	var worker = createWorker(0)
 
 	var values []string
-	// tm := time.After(169 * time.Second)
+	tm := time.After(69 * time.Second)
 	// tick := time.Tick(time.Second)
+	tick := time.NewTicker(500 * time.Millisecond)
 	// for value := range out {
 	// 	glog.V(8).Infoln("========", value)
 	// }
-	// var i,j int
+	var i,j int
 	for {
 		//fmt.Println("  c1  ", c1)
 		//fmt.Println("  c2  ", c2)
@@ -871,35 +875,30 @@ func Lo() {
 		if len(values) > 0 {
 			activeWorker = worker
 			activeValue = values[0]
-		} 
+		}
 
 		select {
-		case n := <-c1:
+		case n := <-out:
 			values = append(values, n)
-			// j++
-			// glog.V(8).Infoln("======== ADD0----j: ",j )
+			j++
 		// case n := <-c2:
 		// 	values = append(values, n)
 		case activeWorker <- activeValue:
 			values = values[1:]
-			// i++
+			i++
 			// if j==i {
 			// 	return
 			// }
 			// glog.V(8).Infoln("======== ADD i: ",i)
 		// case <-time.After(800 * time.Millisecond):
 		// 	fmt.Println("timeout")
-		// case <-tick:
-		// 	fmt.Println(
-		// 		"queue len =", len(values))
-		// case <-tm:
-		// 	fmt.Println("bye")
-		// 	return
+		case <-tick.C:
+			fmt.Println(
+				"queue len =", len(values), " i :",i, " j :",j)
+		case <-tm:
+			fmt.Println("bye")
+			return
 		}
-		// if c1 == nil{
-		// 		glog.V(8).Infoln("======== BYE" )
-
-		// }
 
 	}
 }
