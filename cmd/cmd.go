@@ -791,9 +791,10 @@ func Downloadd(cmds []string) error {
 }
 
 //------------------------------TESTING BELOW
-func generator(id string, out chan int)  {
+func generator(id, path string, out chan string) {
 	// out := make(chan int, 50)
 	go func() {
+		pthSep := string(os.PathSeparator)
 		qString := "'" + id + "' in parents"
 		// glog.V(8).Info("B1: ", qString)
 		item, err := utils.StartSrv(drive.DriveScope).Files.List().
@@ -809,19 +810,18 @@ func generator(id string, out chan int)  {
 			// glog.V(8).Info("B4: ")
 			if file.MimeType == "application/vnd.google-apps.folder" {
 				// glog.V(8).Info("B5: ")
-				// chD <- file.Id + " : " + file.Name
-				out <- 6
-				glog.V(8).Info("D----: ", file.Id," : ", file.Name)
-				go generator(file.Id, out)
+				pat := "D " + path + pthSep + file.Name
+				out <- pat
+				glog.V(8).Info("D----: ", file.Id, " : ", file.Name)
+				go generator(file.Id, path, out)
 			} else {
 				// glog.V(8).Info("B6: ")
 				// chF <- file.Id + " : " + file.Name
-				out <- 3
-				glog.V(8).Info("F: ", file.Id," : ", file.Name )
+				out <- "F " + path + pthSep + file.Name
+				glog.V(8).Info("F: ", file.Id, " : ", file.Name)
 			}
 		}
 		// glog.V(8).Info("B7: ")
-
 		// i := 0
 		// for {
 		// 	time.Sleep(
@@ -834,58 +834,73 @@ func generator(id string, out chan int)  {
 	// return out
 }
 
-func worker(id int, c chan int) {
+func worker(id int, c chan string) {
 	for n := range c {
 		time.Sleep(time.Second)
-		fmt.Printf("Worker %d received %d\n",
+		fmt.Printf("Worker %d received %s\n",
 			id, n)
 	}
 }
 
-func createWorker(id int) chan<- int {
-	c := make(chan int)
+func createWorker(id int) chan<- string {
+	c := make(chan string)
 	go worker(id, c)
 	return c
 }
 
 func Lo() {
 
-	out := make(chan int, 40)
-	generator("19YMYxawcjse0IcqKHrJYyx7yDEA_SLEA", out)
+	out := make(chan string)
+	generator("19YMYxawcjse0IcqKHrJYyx7yDEA_SLEA", "ioiok", out)
 	var c1 = out
-		// generator("19YMYxawcjse0IcqKHrJYyx7yDEA_SLEA")
+	// generator("19YMYxawcjse0IcqKHrJYyx7yDEA_SLEA")
 	var worker = createWorker(0)
 
-	var values []int
-	tm := time.After(59 * time.Second)
-	tick := time.Tick(time.Second)
+	var values []string
+	// tm := time.After(169 * time.Second)
+	// tick := time.Tick(time.Second)
+	// for value := range out {
+	// 	glog.V(8).Infoln("========", value)
+	// }
+	// var i,j int
 	for {
 		//fmt.Println("  c1  ", c1)
 		//fmt.Println("  c2  ", c2)
-		var activeWorker chan<- int
-		var activeValue int
+		var activeWorker chan<- string
+		var activeValue string
 		if len(values) > 0 {
 			activeWorker = worker
 			activeValue = values[0]
-		}
+		} 
 
 		select {
 		case n := <-c1:
 			values = append(values, n)
+			// j++
+			// glog.V(8).Infoln("======== ADD0----j: ",j )
 		// case n := <-c2:
 		// 	values = append(values, n)
 		case activeWorker <- activeValue:
 			values = values[1:]
-
-		case <-time.After(800 * time.Millisecond):
-			fmt.Println("timeout")
-		case <-tick:
-			fmt.Println(
-				"queue len =", len(values))
-		case <-tm:
-			fmt.Println("bye")
-			return
+			// i++
+			// if j==i {
+			// 	return
+			// }
+			// glog.V(8).Infoln("======== ADD i: ",i)
+		// case <-time.After(800 * time.Millisecond):
+		// 	fmt.Println("timeout")
+		// case <-tick:
+		// 	fmt.Println(
+		// 		"queue len =", len(values))
+		// case <-tm:
+		// 	fmt.Println("bye")
+		// 	return
 		}
+		// if c1 == nil{
+		// 		glog.V(8).Infoln("======== BYE" )
+
+		// }
+
 	}
 }
 
