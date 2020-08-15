@@ -349,7 +349,7 @@ func runCommand(commandStr string) {
 		case "lo":
 			// service = startSrv()
 			// println("this is login")
-			cmd.Lo()
+			go cmd.Lo()
 			// cmd.BufferedChannel()
 			// cmd.Select()
 

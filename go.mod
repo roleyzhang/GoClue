@@ -55,6 +55,7 @@ require (
 	github.com/tetafro/godot v0.4.2 // indirect
 	github.com/timakin/bodyclose v0.0.0-20200424151742-cb6215831a94 // indirect
 	github.com/ultraware/whitespace v0.0.4 // indirect
+	go.uber.org/ratelimit v0.1.0
 	golang.org/x/net v0.0.0-20200707034311-ab3426394381
 	golang.org/x/net/http2/h2demo v0.0.0-20200707034311-ab3426394381 // indirect
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d

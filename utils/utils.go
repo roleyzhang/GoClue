@@ -42,7 +42,7 @@ func ClearDownloadMap(m map[string]string) {
 	}
 }
 
-func incrFiles() func(path, id, file string) map[string]string {
+func IncrFiles() func(path, id, file string) map[string]string {
 	var files = make(map[string]string) 
 	return func(path, id, file string) map[string]string  {
 		// files = append(files, path+string(os.PathSeparator)+file)
@@ -50,7 +50,7 @@ func incrFiles() func(path, id, file string) map[string]string {
 		return files
 	}
 }
-var filesFromSrv = incrFiles()
+var filesFromSrv = IncrFiles()
 
 func GetFilesAndFolders(id, path string) (files map[string]string, folders []string, err error) {
 	pthSep := string(os.PathSeparator)

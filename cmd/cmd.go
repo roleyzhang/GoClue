@@ -21,6 +21,7 @@ import (
 	"github.com/c-bata/go-prompt"
 	"github.com/dustin/go-humanize"
 	"github.com/roleyzhang/GoClue/utils"
+	"go.uber.org/ratelimit"
 	"golang.org/x/net/context"
 	"google.golang.org/api/drive/v3"
 )
@@ -703,7 +704,8 @@ func downld(id, target string) error {
 	defer resp.Body.Close()
 	// Create the file, but give it a tmp file extension, this means we won't overwrite a
 	// file until it's downloaded, but we'll remove the tmp extension once downloaded.
-	fileName := strings.Trim(target, " ") + "/" + GetSugDec(FileSug, id)
+	// fileName := strings.Trim(target, " ") + "/" + GetSugDec(FileSug, id)
+	fileName := strings.Trim(target, " ")
 	glog.V(8).Info("this is download x1.1 ", fileName)
 	out, err := os.Create(fileName + ".tmp")
 	if err != nil {
@@ -793,11 +795,25 @@ func Downloadd(cmds []string) error {
 }
 
 //------------------------------TESTING BELOW
-func generator(id, path string, out chan string) {
+// func Lo() {
+//     rl := ratelimit.New(100) // per second
+
+//     prev := time.Now()
+//     for i := 0; i < 100; i++ {
+//         now := rl.Take()
+//         fmt.Println(i, now.Sub(prev))
+//         prev = now
+//     }
+// }
+
+// var filesFromSrv = utils.IncrFiles()
+
+func generator(id, path string, strd string, strf string, out chan string) {
 	// out := make(chan int, 50)
 	go func() {
 		pthSep := string(os.PathSeparator)
-		qString := "'" + id + "' in parents"
+		// qString := "'" + id + "' in parents"
+		qString := "'" + id + "' in parents and trashed=false"
 		// glog.V(8).Info("B1: ", qString)
 		item, err := utils.StartSrv(drive.DriveScope).Files.List().
 			Q(qString).PageSize(40).
@@ -808,98 +824,107 @@ func generator(id, path string, out chan string) {
 			glog.Errorln("file or dir not exist: ", err.Error())
 		}
 		// glog.V(8).Info("B3: ")
+		//speed limit of google drive api 1000 requests per 100 seconds
+		rl := ratelimit.New(5) // per second 5 requests
+		prev := time.Now()
+		// strf = path
+		var pat string
+		var patt string
 		for _, file := range item.Files {
 			// glog.V(8).Info("B4: ")
+			now := rl.Take()
 			if file.MimeType == "application/vnd.google-apps.folder" {
-				// glog.V(8).Info("B5: ")
-				pat := "D " + path + pthSep + file.Name
-				out <- pat
-				glog.V(8).Info("D----: ", file.Id, " : ", file.Name)
-				go generator(file.Id, path, out)
+				patt = pthSep +file.Name
+				// glog.V(8).Info("B5: ", patt)
+				strd = strd + pthSep + file.Name
+				out <- path + strd
+				go generator(file.Id, path,strd,strf, out)
 			} else {
-				// glog.V(8).Info("B6: ")
-				// chF <- file.Id + " : " + file.Name
-				out <- "F " + path + pthSep + file.Name
-				glog.V(8).Info("F: ", file.Id, " : ", file.Name)
+				// glog.V(8).Info("B6: ",patt)
+				pat = strd + pthSep + file.Name + "-/-" + file.Id 
+				pat = strings.ReplaceAll(pat, patt, "")
+				out <- path +pat 
 			}
+			now.Sub(prev)
+			prev = now
 		}
 		// glog.V(8).Info("B7: ")
-		// i := 0
-		// for {
-		// 	time.Sleep(
-		// 		time.Duration(rand.Intn(1500)) *
-		// 			time.Millisecond)
-		// 	out <- i
-		// 	i++
-		// }
 	}()
 	// return out
 }
 
-func worker(id int, c chan string) {
+func downloader(id int, c chan string) {
 	for n := range c {
 		time.Sleep(time.Second)
-		fmt.Printf("Worker %d received %s\n",
-			id, n)
+		// fmt.Printf("Downloader %d received %s\n",
+		// 	id, n)
+		if strings.Contains(n, "-/-"){
+			target := strings.Split(n, "-/-")
+			// glog.V(8).Infoln("Starting downloading...", target[0], " ", target[1])
+			//3 start download
+			err:= downld(target[1], target[0])
+			if err != nil {
+				glog.Errorln("Download failed: ", err.Error())
+			}
+		}else{
+			// glog.V(8).Infoln("Creating folder...", n)
+			_, err := os.Stat(n)
+			if os.IsNotExist(err) {
+				err := os.MkdirAll(n, 0755)
+				if err != nil{
+					glog.Errorln("Create folder failed ", err.Error())
+				}
+			}
+			// err := os.MkdirAll(n, os.ModePerm)
+		}
 	}
 }
 
-func createWorker(id int) chan<- string {
+func createDownloader(id int) chan<- string {
 	c := make(chan string)
-	go worker(id, c)
+	go downloader(id, c)
 	return c
 }
 
 func Lo() {
-
 	out := make(chan string)
-	generator("19YMYxawcjse0IcqKHrJYyx7yDEA_SLEA", "ioiok", out)
-	// close(out)
-	// var c1 = out
-	// generator("19YMYxawcjse0IcqKHrJYyx7yDEA_SLEA")
-	var worker = createWorker(0)
-
+	var fd string
+	var fls string
+	generator("19YMYxawcjse0IcqKHrJYyx7yDEA_SLEA", "ioiok",fd,fls, out)
+	var downloader = createDownloader(0)
+	var i, j int
 	var values []string
-	tm := time.After(69 * time.Second)
-	// tick := time.Tick(time.Second)
-	tick := time.NewTicker(500 * time.Millisecond)
-	// for value := range out {
-	// 	glog.V(8).Infoln("========", value)
-	// }
-	var i,j int
+	// tm := time.After(69 * time.Second)
+	tick := time.NewTicker(5 * time.Second)
+
 	for {
-		//fmt.Println("  c1  ", c1)
-		//fmt.Println("  c2  ", c2)
-		var activeWorker chan<- string
+		var activeDownloader chan<- string
 		var activeValue string
 		if len(values) > 0 {
-			activeWorker = worker
+			activeDownloader = downloader
 			activeValue = values[0]
 		}
 
 		select {
 		case n := <-out:
+			//add task to buffer
 			values = append(values, n)
 			j++
-		// case n := <-c2:
-		// 	values = append(values, n)
-		case activeWorker <- activeValue:
+		case activeDownloader <- activeValue:
+			// do task
 			values = values[1:]
 			i++
-			// if j==i {
-			// 	return
-			// }
-			// glog.V(8).Infoln("======== ADD i: ",i)
 		// case <-time.After(800 * time.Millisecond):
 		// 	fmt.Println("timeout")
 		case <-tick.C:
-			fmt.Println(
-				"queue len =", len(values), " i :",i, " j :",j)
-		case <-tm:
-			fmt.Println("bye")
-			return
+			// if buffer =0 and task count = full buffer size then jump out
+			if len(values) == 0 && i == j {
+				return
+			}
+			// case <-tm:
+			// 	fmt.Println("bye")
+			// return
 		}
-
 	}
 }
 
@@ -972,7 +997,7 @@ func Lo() {
 // }
 
 //-------------phase 3
-// func worker(id int, c chan string) {
+// func downloader(id int, c chan string) {
 // 	for n := range c {
 // 		time.Sleep(time.Second)
 // 		if id ==0 {
@@ -985,9 +1010,9 @@ func Lo() {
 // 	}
 // }
 
-// func createWorker(id int) chan<- string{
+// func createDownloader(id int) chan<- string{
 // 	c := make(chan string)
-// 	go worker(id, c)
+// 	go downloader(id, c)
 // 	return c
 // }
 
@@ -1031,8 +1056,8 @@ func Lo() {
 
 // 	// checkDrvData("19YMYxawcjse0IcqKHrJYyx7yDEA_SLEA")
 // 	cd,cf := checkDrvData("19YMYxawcjse0IcqKHrJYyx7yDEA_SLEA")
-// 	var worker = createWorker(0)
-// 	var worker2= createWorker(1)
+// 	var downloader = createDownloader(0)
+// 	var downloader2= createDownloader(1)
 
 // 	var values []string
 // 	var values2 []string
@@ -1041,11 +1066,11 @@ func Lo() {
 // 	var activeW2 chan <- string
 // 	var activeV2 string
 // 	if len(values) >0 {
-// 		activeW = worker
+// 		activeW = downloader
 // 		activeV = values[0]
 // 	}
 // 	if len(values2) >0 {
-// 		activeW2 = worker2
+// 		activeW2 = downloader2
 // 		activeV2 = values2[0]
 // 	}
 // 	tick := time.Tick(time.Second)
@@ -1092,28 +1117,28 @@ async download method
 2. use select to handle query successful task, which query task return firstly, then run download task
 */
 //-------------phase 2
-// func doWorker(id int, c chan int, wg *sync.WaitGroup) {
+// func doDownloader(id int, c chan int, wg *sync.WaitGroup) {
 // 	for  n := range c {
-// 		glog.V(8).Infof("Worker %d receive %c\n", id, n)
+// 		glog.V(8).Infof("Downloader %d receive %c\n", id, n)
 // 		// go func(){done <- true}()
 // 		Ps.SetPrefix(strconv.Itoa(n)+ strconv.Itoa(id))
 // 		wg.Done()
 // 	}
 // }
 
-// type worker struct  {
+// type downloader struct  {
 // 	in chan int
 // 	// done chan bool
 // 	wg *sync.WaitGroup
 // }
 
-// // create worker channels
-// func createWorker(id int, wg *sync.WaitGroup) worker{
-// 	w := worker{
+// // create downloader channels
+// func createDownloader(id int, wg *sync.WaitGroup) downloader{
+// 	w := downloader{
 // 		in: make(chan int),
 // 		wg: wg,
 // 	}
-// 	go doWorker(id, w.in, wg)
+// 	go doDownloader(id, w.in, wg)
 // 	return w
 // }
 
@@ -1122,45 +1147,45 @@ async download method
 // 	glog.V(8).Info("this is Lo Testing")
 // 	var wg sync.WaitGroup
 // 	wg.Add(20)
-// 	var workers [10]worker
+// 	var downloaders [10]downloader
 // 	for i := 0; i < 10; i++ {
 // 		// channels[i] = make(chan int)
-// 		// go worker(i, channels[i])
-// 		workers[i] = createWorker(i, &wg)
+// 		// go downloader(i, channels[i])
+// 		downloaders[i] = createDownloader(i, &wg)
 // 	}
-// 	for i, worker := range workers {
-// 		worker.in <- 'a' + i
+// 	for i, downloader := range downloaders {
+// 		downloader.in <- 'a' + i
 // 	}
-// 	for i, worker := range workers {
-// 		worker.in <- 'A' + i
+// 	for i, downloader := range downloaders {
+// 		downloader.in <- 'A' + i
 // 	}
 // 	wg.Wait()
 // }
 
 //-------------phase 1
-// func worker(id int, c chan int) {
+// func downloader(id int, c chan int) {
 // 	// for {
 // 	// 	// n := <-c
-// 	// 	glog.V(8).Infof("Worker %d receive %c\n", id, <-c)
+// 	// 	glog.V(8).Infof("Downloader %d receive %c\n", id, <-c)
 // 	// }
 // 	for  n := range c {
 // 		// n, ok := <-c
 // 		// if !ok {
 // 		// 	break
 // 		// }
-// 		glog.V(8).Infof("Worker %d receive %c\n", id, n)
+// 		glog.V(8).Infof("Downloader %d receive %c\n", id, n)
 // 	}
 // }
 
-// // create worker channels
-// func createWorker(id int) chan int {
+// // create downloader channels
+// func createDownloader(id int) chan int {
 // 	c := make(chan int)
 // 	// go func() {
 // 	// 	for {
-// 	// 		glog.V(8).Infof("Worker %d receive %c\n", id, <-c)
+// 	// 		glog.V(8).Infof("Downloader %d receive %c\n", id, <-c)
 // 	// 	}
 // 	// }()
-// 	go worker(id, c)
+// 	go downloader(id, c)
 // 	return c
 // }
 
@@ -1168,7 +1193,7 @@ async download method
 // func BufferedChannel() {
 // 	glog.V(8).Infof("BufferedChannel:")
 // 	c := make(chan int, 3)
-// 	go worker(0, c)
+// 	go downloader(0, c)
 // 	c <- 'a'
 // 	c <- 'b'
 // 	c <- 'c'
@@ -1182,8 +1207,8 @@ async download method
 // 	var channels [10]chan int
 // 	for i := 0; i < 10; i++ {
 // 		// channels[i] = make(chan int)
-// 		// go worker(i, channels[i])
-// 		channels[i] = createWorker(i)
+// 		// go downloader(i, channels[i])
+// 		channels[i] = createDownloader(i)
 // 	}
 // 	for i := 0; i < 10; i++ {
 // 		channels[i] <- 'a' + i
