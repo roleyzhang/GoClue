@@ -111,7 +111,7 @@ func completer(in prompt.Document) []prompt.Suggest {
 
 	}
 
-	if len(arrCommandStr) == 0 {
+	if len(arrCommandStr) >= 0 {
 		s = []prompt.Suggest{
 			{Text: "q", Description: "Quit"},
 			{Text: "login", Description: "Login to your account of net drive"},
@@ -349,6 +349,8 @@ func runCommand(commandStr string) {
 		case "lo":
 			// service = startSrv()
 			// println("this is login")
+
+			cmd.Ps.SetStatus(cmd.FixlongStringRunes(26))
 			go cmd.Lo()
 			// cmd.BufferedChannel()
 			// cmd.Select()

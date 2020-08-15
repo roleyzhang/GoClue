@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
+	"flag"
 	// "sync"
 	// "strconv"
 	"github.com/golang/glog"
@@ -21,7 +21,7 @@ import (
 	"github.com/c-bata/go-prompt"
 	"github.com/dustin/go-humanize"
 	"github.com/roleyzhang/GoClue/utils"
-	"go.uber.org/ratelimit"
+	// "go.uber.org/ratelimit"
 	"golang.org/x/net/context"
 	"google.golang.org/api/drive/v3"
 )
@@ -59,6 +59,7 @@ type PromptStyle struct {
 	Gap      string
 	FolderId string
 	Info     string
+	Status     string
 }
 
 func init() {
@@ -87,10 +88,11 @@ func init() {
 	}
 
 	Ps = PromptStyle{
-		Pre:      "[$1 $2]",
+		Pre:      "$0[$1 $2]",
 		Gap:      ">>>",
 		FolderId: "",
 		Info:     "",
+		Status:   "",
 	}
 }
 
@@ -152,7 +154,14 @@ func getSugInfo() func(folder prompt.Suggest) *[]prompt.Suggest {
 // }
 
 func (ps *PromptStyle) SetPrefix(msgs string) {
-	ps.Info = msgs
+	go func(mas string) {
+		ps.Info = msgs
+	}(msgs)
+}
+func (ps *PromptStyle) SetStatus(msgs string) {
+	go func(mas string) {
+		ps.Status = msgs
+	}(msgs)
 }
 
 func (ps *PromptStyle) SetDynamicPrefix() (string, bool) {
@@ -162,6 +171,7 @@ func (ps *PromptStyle) SetDynamicPrefix() (string, bool) {
 		folderName := GetSugDec(DirSug, ps.FolderId)
 		value := ps.Pre
 		r := strings.NewReplacer(
+			"$0", ps.Status,
 			"$1", ps.Info,
 			"$2", folderName,
 		)
@@ -807,126 +817,172 @@ func Downloadd(cmds []string) error {
 // }
 
 // var filesFromSrv = utils.IncrFiles()
+var spinChars = `|/-\`
 
-func generator(id, path string, strd string, strf string, out chan string) {
-	// out := make(chan int, 50)
-	go func() {
-		pthSep := string(os.PathSeparator)
-		// qString := "'" + id + "' in parents"
-		qString := "'" + id + "' in parents and trashed=false"
-		// glog.V(8).Info("B1: ", qString)
-		item, err := utils.StartSrv(drive.DriveScope).Files.List().
-			Q(qString).PageSize(40).
-			Fields("nextPageToken, files(id, name, mimeType)").
-			Do()
-		// glog.V(8).Info("B2: ", item.Files)
-		if err != nil {
-			glog.Errorln("file or dir not exist: ", err.Error())
-		}
-		// glog.V(8).Info("B3: ")
-		//speed limit of google drive api 1000 requests per 100 seconds
-		rl := ratelimit.New(5) // per second 5 requests
-		prev := time.Now()
-		// strf = path
-		var pat string
-		var patt string
-		for _, file := range item.Files {
-			// glog.V(8).Info("B4: ")
-			now := rl.Take()
-			if file.MimeType == "application/vnd.google-apps.folder" {
-				patt = pthSep +file.Name
-				// glog.V(8).Info("B5: ", patt)
-				strd = strd + pthSep + file.Name
-				out <- path + strd
-				go generator(file.Id, path,strd,strf, out)
-			} else {
-				// glog.V(8).Info("B6: ",patt)
-				pat = strd + pthSep + file.Name + "-/-" + file.Id 
-				pat = strings.ReplaceAll(pat, patt, "")
-				out <- path +pat 
-			}
-			now.Sub(prev)
-			prev = now
-		}
-		// glog.V(8).Info("B7: ")
-	}()
-	// return out
+type Spinner struct {
+    message string
+    i       int
 }
 
-func downloader(id int, c chan string) {
-	for n := range c {
-		time.Sleep(time.Second)
-		// fmt.Printf("Downloader %d received %s\n",
-		// 	id, n)
-		if strings.Contains(n, "-/-"){
-			target := strings.Split(n, "-/-")
-			// glog.V(8).Infoln("Starting downloading...", target[0], " ", target[1])
-			//3 start download
-			err:= downld(target[1], target[0])
-			if err != nil {
-				glog.Errorln("Download failed: ", err.Error())
-			}
-		}else{
-			// glog.V(8).Infoln("Creating folder...", n)
-			_, err := os.Stat(n)
-			if os.IsNotExist(err) {
-				err := os.MkdirAll(n, 0755)
-				if err != nil{
-					glog.Errorln("Create folder failed ", err.Error())
-				}
-			}
-			// err := os.MkdirAll(n, os.ModePerm)
-		}
-	}
+func NewSpinner(message string) *Spinner {
+    return &Spinner{message: message}
 }
 
-func createDownloader(id int) chan<- string {
-	c := make(chan string)
-	go downloader(id, c)
-	return c
+func (s *Spinner) Tick() {
+    fmt.Printf("%s %c \r", s.message, spinChars[s.i])
+    s.i = (s.i + 1) % len(spinChars)
+}
+
+func isTTY() bool {
+    fi, err := os.Stdout.Stat()
+    if err != nil {
+        return false
+    }
+    return fi.Mode()&os.ModeCharDevice != 0
 }
 
 func Lo() {
-	out := make(chan string)
-	var fd string
-	var fls string
-	generator("19YMYxawcjse0IcqKHrJYyx7yDEA_SLEA", "ioiok",fd,fls, out)
-	var downloader = createDownloader(0)
-	var i, j int
-	var values []string
-	// tm := time.After(69 * time.Second)
-	tick := time.NewTicker(5 * time.Second)
-
-	for {
-		var activeDownloader chan<- string
-		var activeValue string
-		if len(values) > 0 {
-			activeDownloader = downloader
-			activeValue = values[0]
-		}
-
-		select {
-		case n := <-out:
-			//add task to buffer
-			values = append(values, n)
-			j++
-		case activeDownloader <- activeValue:
-			// do task
-			values = values[1:]
-			i++
-		// case <-time.After(800 * time.Millisecond):
-		// 	fmt.Println("timeout")
-		case <-tick.C:
-			// if buffer =0 and task count = full buffer size then jump out
-			if len(values) == 0 && i == j {
-				return
-			}
-			// case <-tm:
-			// 	fmt.Println("bye")
-			// return
-		}
-	}
+    flag.Parse()
+    s := NewSpinner("working...")
+    isTTY := isTTY()
+	// Ps.Pre = "                      [$1 $2]"
+    for i := 0; i < 100; i++ {
+		fmt.Printf("\rOn %d/10", i)
+        if isTTY {
+            s.Tick()
+        }
+        time.Sleep(100 * time.Millisecond)
+    }
+	Ps.SetStatus(FixlongStringRunes(0))
 }
+
+func FixlongStringRunes(n int) string {
+    b := make([]byte, n)
+    for i := range b {
+        b[i] = ' '
+	}
+    return string(b)
+}
+//-------------phase 5...
+// func generator(id, path string, strd string, strf string, out chan string) {
+// 	// out := make(chan int, 50)
+// 	go func() {
+// 		pthSep := string(os.PathSeparator)
+// 		// qString := "'" + id + "' in parents"
+// 		qString := "'" + id + "' in parents and trashed=false"
+// 		// glog.V(8).Info("B1: ", qString)
+// 		item, err := utils.StartSrv(drive.DriveScope).Files.List().
+// 			Q(qString).PageSize(40).
+// 			Fields("nextPageToken, files(id, name, mimeType)").
+// 			Do()
+// 		// glog.V(8).Info("B2: ", item.Files)
+// 		if err != nil {
+// 			glog.Errorln("file or dir not exist: ", err.Error())
+// 		}
+// 		// glog.V(8).Info("B3: ")
+// 		//speed limit of google drive api 1000 requests per 100 seconds
+// 		rl := ratelimit.New(5) // per second 5 requests
+// 		prev := time.Now()
+// 		// strf = path
+// 		var pat string
+// 		var patt string
+// 		for _, file := range item.Files {
+// 			// glog.V(8).Info("B4: ")
+// 			now := rl.Take()
+// 			if file.MimeType == "application/vnd.google-apps.folder" {
+// 				patt = pthSep +file.Name
+// 				// glog.V(8).Info("B5: ", patt)
+// 				strd = strd + pthSep + file.Name
+// 				out <- path + strd
+// 				go generator(file.Id, path,strd,strf, out)
+// 			} else {
+// 				// glog.V(8).Info("B6: ",patt)
+// 				pat = strd + pthSep + file.Name + "-/-" + file.Id
+// 				pat = strings.ReplaceAll(pat, patt, "")
+// 				out <- path +pat
+// 			}
+// 			now.Sub(prev)
+// 			prev = now
+// 		}
+// 		// glog.V(8).Info("B7: ")
+// 	}()
+// 	// return out
+// }
+
+// func downloader(id int, c chan string) {
+// 	for n := range c {
+// 		time.Sleep(time.Second)
+// 		// fmt.Printf("Downloader %d received %s\n",
+// 		// 	id, n)
+// 		if strings.Contains(n, "-/-"){
+// 			target := strings.Split(n, "-/-")
+// 			// glog.V(8).Infoln("Starting downloading...", target[0], " ", target[1])
+// 			//3 start download
+// 			err:= downld(target[1], target[0])
+// 			if err != nil {
+// 				glog.Errorln("Download failed: ", err.Error())
+// 			}
+// 		}else{
+// 			// glog.V(8).Infoln("Creating folder...", n)
+// 			_, err := os.Stat(n)
+// 			if os.IsNotExist(err) {
+// 				err := os.MkdirAll(n, 0755)
+// 				if err != nil{
+// 					glog.Errorln("Create folder failed ", err.Error())
+// 				}
+// 			}
+// 			// err := os.MkdirAll(n, os.ModePerm)
+// 		}
+// 	}
+// }
+
+// func createDownloader(id int) chan<- string {
+// 	c := make(chan string)
+// 	go downloader(id, c)
+// 	return c
+// }
+
+// func Lo() {
+// 	out := make(chan string)
+// 	var fd string
+// 	var fls string
+// 	generator("19YMYxawcjse0IcqKHrJYyx7yDEA_SLEA", "ioiok",fd,fls, out)
+// 	var downloader = createDownloader(0)
+// 	var i, j int
+// 	var values []string
+// 	// tm := time.After(69 * time.Second)
+// 	tick := time.NewTicker(5 * time.Second)
+
+// 	for {
+// 		var activeDownloader chan<- string
+// 		var activeValue string
+// 		if len(values) > 0 {
+// 			activeDownloader = downloader
+// 			activeValue = values[0]
+// 		}
+
+// 		select {
+// 		case n := <-out:
+// 			//add task to buffer
+// 			values = append(values, n)
+// 			j++
+// 		case activeDownloader <- activeValue:
+// 			// do task
+// 			values = values[1:]
+// 			i++
+// 		// case <-time.After(800 * time.Millisecond):
+// 		// 	fmt.Println("timeout")
+// 		case <-tick.C:
+// 			// if buffer =0 and task count = full buffer size then jump out
+// 			if len(values) == 0 && i == j {
+// 				return
+// 			}
+// 			// case <-tm:
+// 			// 	fmt.Println("bye")
+// 			// return
+// 		}
+// 	}
+// }
 
 //-------------phase 4
 // func recursiveCall(id string, chF, chD chan string) {
