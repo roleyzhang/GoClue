@@ -350,7 +350,7 @@ func runCommand(commandStr string) {
 			// service = startSrv()
 			// println("this is login")
 
-			cmd.Ps.SetStatus(cmd.FixlongStringRunes(26))
+			cmd.Ps.SetPrefix(cmd.FixlongStringRunes(26),1)
 			go cmd.Lo()
 			// cmd.BufferedChannel()
 			// cmd.Select()
@@ -360,21 +360,21 @@ func runCommand(commandStr string) {
 			if _, err := ii.CreateDir(arrCommandStr[1]); err != nil {
 				glog.Error("Can not create folder" + err.Error())
 			}
-			cmd.Ps.SetPrefix("")
+			cmd.Ps.SetPrefix("",0)
 		case "cd":
 			// println("this is cd")
 			// ii.getNode(arrCommandStr[1])
 			ii.GetNode(commandStr)
-			cmd.Ps.SetPrefix("")
+			cmd.Ps.SetPrefix("",0)
 		case "cdd":
 			// println("this is cd")
 			ii.GetNoded(arrCommandStr[1])
-			cmd.Ps.SetPrefix("")
+			cmd.Ps.SetPrefix("",0)
 		case "mv":
 			if err := ii.Move(commandStr); err != nil {
 				glog.Error("Can not move file" + err.Error())
 			}
-			cmd.Ps.SetPrefix("")
+			cmd.Ps.SetPrefix("",0)
 		case "tr":
 			if arrCommandStr[1] == "-r" {
 				if err := ii.Trash(arrCommandStr[2], arrCommandStr[1]); err != nil {
@@ -385,7 +385,7 @@ func runCommand(commandStr string) {
 					glog.Error("Can not delete file" + err.Error())
 				}
 			}
-			cmd.Ps.SetPrefix("")
+			cmd.Ps.SetPrefix("",0)
 		case "trd":
 			if arrCommandStr[1] == "-r" {
 				if err := ii.Trashd(arrCommandStr[2], arrCommandStr[1]); err != nil {
@@ -396,7 +396,7 @@ func runCommand(commandStr string) {
 					glog.Error("Can not delete file" + err.Error())
 				}
 			}
-			cmd.Ps.SetPrefix("")
+			cmd.Ps.SetPrefix("",0)
 		case "rm":
 			if arrCommandStr[1] == "-r" {
 				if err := ii.Rm(arrCommandStr[2], arrCommandStr[1]); err != nil {
@@ -407,7 +407,7 @@ func runCommand(commandStr string) {
 					glog.Error("Can not delete file" + err.Error())
 				}
 			}
-			cmd.Ps.SetPrefix("")
+			cmd.Ps.SetPrefix("",0)
 		case "rmd":
 			if arrCommandStr[1] == "-r" {
 				if err := ii.Rmd(arrCommandStr[2], arrCommandStr[1]); err != nil {
@@ -418,49 +418,49 @@ func runCommand(commandStr string) {
 					glog.Error("Can not delete file" + err.Error())
 				}
 			}
-			cmd.Ps.SetPrefix("")
+			cmd.Ps.SetPrefix("",0)
 		case "d":
 			err := cmd.Download(commandStr)
 			if err != nil {
 				glog.Errorf("Unable to download files: %v", err.Error())
 			}
-			cmd.Ps.SetPrefix("")
+			cmd.Ps.SetPrefix("",0)
 		case "dd":
 			err := cmd.Downloadd(arrCommandStr)
 			if err != nil {
 				glog.Errorf("Unable to download files: %v", err.Error())
 			}
-			cmd.Ps.SetPrefix("")
+			cmd.Ps.SetPrefix("",0)
 		case "ls":
 			list(arrCommandStr)
-			cmd.Ps.SetPrefix("")
+			cmd.Ps.SetPrefix("",0)
 		case "u":
 			if _, err := ii.Upload(commandStr); err != nil {
 				glog.Error("Can not upload file" + err.Error())
 			}
-			cmd.Ps.SetPrefix("")
+			cmd.Ps.SetPrefix("",0)
 		case "h":
 			for _, cmd := range allCommands {
 				fmt.Printf("%6s: %s %s \n", cmd.name, cmd.param, cmd.tip)
 			}
-			cmd.Ps.SetPrefix("")
+			cmd.Ps.SetPrefix("",0)
 		case "n":
 			counter++
 			if page[counter] == "" {
 				page[counter] = pageToken
 			}
 			next(counter)
-			cmd.Ps.SetPrefix("- Page " + strconv.Itoa(counter))
+			cmd.Ps.SetPrefix("- Page " + strconv.Itoa(counter),0)
 		case "p":
 			if counter > 0 {
 				counter--
 			}
 			pageToken = page[counter]
 			previous(counter)
-			cmd.Ps.SetPrefix("- Page " + strconv.Itoa(counter))
+			cmd.Ps.SetPrefix("- Page " + strconv.Itoa(counter),0)
 		default:
 			fmt.Printf(string(colorRed), "Please check your input or type \"h\" get help")
-			cmd.Ps.SetPrefix("")
+			cmd.Ps.SetPrefix("",0)
 		}
 
 	}

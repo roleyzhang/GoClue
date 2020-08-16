@@ -6,13 +6,13 @@ import (
 	"io"
 
 	// "math/rand"
+	"flag"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
 	"time"
-	"flag"
 	// "sync"
 	// "strconv"
 	"github.com/golang/glog"
@@ -59,7 +59,7 @@ type PromptStyle struct {
 	Gap      string
 	FolderId string
 	Info     string
-	Status     string
+	Status   string
 }
 
 func init() {
@@ -153,16 +153,38 @@ func getSugInfo() func(folder prompt.Suggest) *[]prompt.Suggest {
 // 	}
 // }
 
-func (ps *PromptStyle) SetPrefix(msgs string) {
-	go func(mas string) {
-		ps.Info = msgs
-	}(msgs)
+func (ps *PromptStyle) SetPrefix(msgs string, wc int) {
+	switch wc {
+	case 0:
+		done := make(chan struct{})
+		go func(mas string) {
+			ps.Info = msgs
+			done <- struct{}{}
+		}(msgs)
+		<-done
+	case 1:
+		done := make(chan struct{})
+		go func(mas string) {
+			ps.Status = msgs
+			done <- struct{}{}
+		}(msgs)
+		<-done
+	}
+	// go func(mas string) {
+	// 	ps.Info = msgs
+	// }(msgs)
 }
-func (ps *PromptStyle) SetStatus(msgs string) {
-	go func(mas string) {
-		ps.Status = msgs
-	}(msgs)
-}
+
+// func (ps *PromptStyle) SetStatus(msgs string) {
+// 	// Create a channel to push an empty struct to once we're done
+// 	done := make(chan struct{})
+// 	go func(mas string) {
+// 		ps.Status = msgs
+// 		// Push an empty struct once we're done
+// 		done <- struct{}{}
+// 	}(msgs)
+// 	<-done
+// }
 
 func (ps *PromptStyle) SetDynamicPrefix() (string, bool) {
 	// glog.V(8).Info("SetPrefix: ",msgs, ii.ItemId, len(*DirSug) )
@@ -820,49 +842,50 @@ func Downloadd(cmds []string) error {
 var spinChars = `|/-\`
 
 type Spinner struct {
-    message string
-    i       int
+	message string
+	i       int
 }
 
 func NewSpinner(message string) *Spinner {
-    return &Spinner{message: message}
+	return &Spinner{message: message}
 }
 
 func (s *Spinner) Tick() {
-    fmt.Printf("%s %c \r", s.message, spinChars[s.i])
-    s.i = (s.i + 1) % len(spinChars)
+	fmt.Printf("%s %c \r", s.message, spinChars[s.i])
+	s.i = (s.i + 1) % len(spinChars)
 }
 
 func isTTY() bool {
-    fi, err := os.Stdout.Stat()
-    if err != nil {
-        return false
-    }
-    return fi.Mode()&os.ModeCharDevice != 0
+	fi, err := os.Stdout.Stat()
+	if err != nil {
+		return false
+	}
+	return fi.Mode()&os.ModeCharDevice != 0
 }
 
 func Lo() {
-    flag.Parse()
-    s := NewSpinner("working...")
-    isTTY := isTTY()
+	flag.Parse()
+	s := NewSpinner("working...")
+	isTTY := isTTY()
 	// Ps.Pre = "                      [$1 $2]"
-    for i := 0; i < 100; i++ {
+	for i := 0; i < 100; i++ {
 		fmt.Printf("\rOn %d/10", i)
-        if isTTY {
-            s.Tick()
-        }
-        time.Sleep(100 * time.Millisecond)
-    }
-	Ps.SetStatus(FixlongStringRunes(0))
+		if isTTY {
+			s.Tick()
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	Ps.SetPrefix(FixlongStringRunes(0),1)
 }
 
 func FixlongStringRunes(n int) string {
-    b := make([]byte, n)
-    for i := range b {
-        b[i] = ' '
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = ' '
 	}
-    return string(b)
+	return string(b)
 }
+
 //-------------phase 5...
 // func generator(id, path string, strd string, strf string, out chan string) {
 // 	// out := make(chan int, 50)
