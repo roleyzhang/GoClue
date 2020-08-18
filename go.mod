@@ -4,6 +4,7 @@ go 1.14
 
 require (
 	github.com/bradleyfalzon/revgrep v0.0.0-20170920092642-c04006dc3307 // indirect
+	github.com/buger/goterm v0.0.0-20200322175922-2f3e71b85129
 	github.com/c-bata/go-prompt v0.2.3
 	github.com/cweill/gotests v1.5.3 // indirect
 	github.com/davidrjenni/reftools v0.0.0-20191222082827-65925cf01315 // indirect
@@ -53,8 +54,10 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/subosito/gotenv v1.2.0 // indirect
 	github.com/tetafro/godot v0.4.2 // indirect
+	github.com/theckman/yacspin v0.8.0
 	github.com/timakin/bodyclose v0.0.0-20200424151742-cb6215831a94 // indirect
 	github.com/ultraware/whitespace v0.0.4 // indirect
+	github.com/vbauerster/mpb/v5 v5.3.0
 	go.uber.org/ratelimit v0.1.0
 	golang.org/x/net v0.0.0-20200707034311-ab3426394381
 	golang.org/x/net/http2/h2demo v0.0.0-20200707034311-ab3426394381 // indirect

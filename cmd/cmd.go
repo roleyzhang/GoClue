@@ -4,24 +4,25 @@ import (
 	"errors"
 	"fmt"
 	"io"
-
 	// "math/rand"
-	"flag"
+	// "flag"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
 	"time"
+	// "io/ioutil"
 	// "sync"
 	// "strconv"
 	"github.com/golang/glog"
 
 	// "os/exec"
 	"github.com/c-bata/go-prompt"
-	"github.com/dustin/go-humanize"
+	// "github.com/dustin/go-humanize"
 	"github.com/roleyzhang/GoClue/utils"
-	// "go.uber.org/ratelimit"
+	"github.com/theckman/yacspin"
+	"go.uber.org/ratelimit"
 	"golang.org/x/net/context"
 	"google.golang.org/api/drive/v3"
 )
@@ -153,7 +154,8 @@ func getSugInfo() func(folder prompt.Suggest) *[]prompt.Suggest {
 // 	}
 // }
 
-func (ps *PromptStyle) SetPrefix(msgs string, wc int) {
+func (ps *PromptStyle) SetPrefix(msgs string) {
+	wc := 0
 	switch wc {
 	case 0:
 		done := make(chan struct{})
@@ -255,6 +257,36 @@ func (ii *ItemInfo) ShowResult(
 	// fmt.Println("Result start: ", page[counter], qString, counter, scope)
 	// colorGreen := "\033[32m%26s  %s\t%s\t%s\t%s\n"
 	// colorCyan := "\033[36m%26s  %s\t%s\t%s\t%s\n"
+
+	//-----yacspin-----------------
+	cfg := yacspin.Config{
+		Frequency:         100 * time.Millisecond,
+		CharSet:           yacspin.CharSets[31],
+		Suffix:            "", //+target,
+		SuffixAutoColon:   true,
+		ColorAll:          true,
+		Message:           "",
+		StopCharacter:     "✓",
+		StopFailMessage:   "",
+		StopFailCharacter: "✗",
+		StopFailColors:    []string{"fgRed"},
+		StopColors:        []string{"fgGreen"},
+	}
+
+	spinner, err := yacspin.New(cfg)
+	// handle the error
+	if err != nil {
+		glog.V(8).Info("Spin run error", err.Error())
+		// glog.Fatalf("Spin run error %v", err)
+		// return err
+	}
+
+	if err := spinner.Start(); err != nil {
+		glog.V(8).Info("Spin start error", err.Error())
+		// glog.Fatalf("Spin start error %v", err)
+		// return err
+	}
+	//-----yacspin-----------------
 	dirInfo := getSugInfo()
 	fileInfo := getSugInfo()
 	allInfo := getSugInfo()
@@ -296,6 +328,7 @@ func (ii *ItemInfo) ShowResult(
 
 	if err != nil {
 		fmt.Printf(string(colorRed), "Unable to retrieve files: %v", err.Error())
+		return nil
 		// uncomment below will cause 500 error and program exit why?
 		// glog.Fatalf("Unable to retrieve files: %v", err)
 	}
@@ -326,6 +359,9 @@ func (ii *ItemInfo) ShowResult(
 				IdfileSug = idfileInfo(s)
 			}
 		}
+	}
+	if err := spinner.Stop(); err != nil {
+		glog.Fatalf("Spinner err: %v", err)
 	}
 	return r
 }
@@ -680,26 +716,26 @@ func (ii *ItemInfo) Move(cmd string) error {
 
 // WriteCounter counts the number of bytes written to it. It implements to the io.Writer interface
 // and we can pass this into io.TeeReader() which will report progress on each write cycle.
-type WriteCounter struct {
-	Total uint64
-}
+// type WriteCounter struct {
+// 	Total uint64
+// }
 
-func (wc *WriteCounter) Write(p []byte) (int, error) {
-	n := len(p)
-	wc.Total += uint64(n)
-	wc.PrintProgress()
-	return n, nil
-}
+// func (wc *WriteCounter) Write(p []byte) (int, error) {
+// 	n := len(p)
+// 	wc.Total += uint64(n)
+// 	wc.PrintProgress()
+// 	return n, nil
+// }
 
-func (wc WriteCounter) PrintProgress() {
-	// Clear the line by using a character return to go back to the start and remove
-	// the remaining characters by filling it with spaces
-	fmt.Printf("\r%s", strings.Repeat(" ", 35))
-	// Return again and print current status of download
-	// We use the humanize package to print the bytes in a meaningful way (e.g. 10 MB)
-	fmt.Printf("\rDownloading... %s complete", humanize.Bytes(wc.Total))
-	// msg("Downloading... "+ humanize.Bytes(wc.Total)+ " complete ")
-}
+// func (wc WriteCounter) PrintProgress() {
+// 	// Clear the line by using a character return to go back to the start and remove
+// 	// the remaining characters by filling it with spaces
+// 	fmt.Printf("\r%s", strings.Repeat(" ", 35))
+// 	// Return again and print current status of download
+// 	// We use the humanize package to print the bytes in a meaningful way (e.g. 10 MB)
+// 	fmt.Printf("\rDownloading... %s complete", humanize.Bytes(wc.Total))
+// 	// msg("Downloading... "+ humanize.Bytes(wc.Total)+ " complete ")
+// }
 
 // getSugDec ...
 func GetSugDec(sug *[]prompt.Suggest, text string) string {
@@ -719,55 +755,108 @@ func GetSugDec(sug *[]prompt.Suggest, text string) string {
 }
 
 // downld ...
-func downld(id, target string) error {
+func downld(id, target, filename, mimeType string) error {
 	glog.V(8).Info("this is download debug ", id, target)
-	// drive.DriveReadonlyScope
-	fgc := utils.StartSrv(drive.DriveScope).Files.Get(id)
-	fgc.Header().Add("alt", "media")
-	resp, err := fgc.Download()
+	//-----yacspin-----------------
+	cfg := yacspin.Config{
+		Frequency:         600 * time.Millisecond,
+		CharSet:           yacspin.CharSets[50],
+		Suffix:            " Downloading to " + target,
+		SuffixAutoColon:   true,
+		ColorAll:          true,
+		Message:           "Downloading data",
+		StopCharacter:     "✓",
+		StopFailMessage:   "Downloading Failed",
+		StopFailCharacter: "✗",
+		StopFailColors:    []string{"fgRed"},
+		StopColors:        []string{"fgGreen"},
+	}
 
-	glog.V(8).Info("this is download x0")
+	spinner, err := yacspin.New(cfg)
+	// handle the error
 	if err != nil {
-		glog.V(8).Info("this is download x0", err.Error())
-		glog.Fatalf("Unable to retrieve files: %v", err)
+		glog.V(8).Info("Spin run error", err.Error())
+		// glog.Fatalf("Spin run error %v", err)
 		return err
 	}
-	glog.V(8).Info("this is download x1", id)
-	defer resp.Body.Close()
-	// Create the file, but give it a tmp file extension, this means we won't overwrite a
-	// file until it's downloaded, but we'll remove the tmp extension once downloaded.
-	// fileName := strings.Trim(target, " ") + "/" + GetSugDec(FileSug, id)
-	fileName := strings.Trim(target, " ")
-	glog.V(8).Info("this is download x1.1 ", fileName)
-	out, err := os.Create(fileName + ".tmp")
-	if err != nil {
+
+	if err := spinner.Start(); err != nil {
+		glog.V(8).Info("Spin start error", err.Error())
+		// glog.Fatalf("Spin start error %v", err)
 		return err
 	}
-	glog.V(8).Info("this is download x2 ", fileName)
-	// Create our progress reporter and pass it to be used alongside our writer
-	counter := &WriteCounter{}
-	if _, err = io.Copy(out, io.TeeReader(resp.Body, counter)); err != nil {
+	//-----yacspin-----------------
+
+	// Download binary file
+	if mimeType != "application/vnd.google-apps.document" {
+		fgc := utils.StartSrv(drive.DriveScope).Files.Get(id)
+		fgc.Header().Add("alt", "media")
+		resp, err := fgc.Download()
+
+		if err != nil {
+			glog.V(8).Info("this is download x0", err.Error())
+			// glog.Fatalf("Unable to retrieve files: %v", err)
+			if err := spinner.StopFail(); err != nil {
+				return err
+			}
+			return err
+		}
+		glog.V(8).Info("this is download x1", id)
+		defer resp.Body.Close()
+		// Create the file, but give it a tmp file extension, this means we won't overwrite a
+		// file until it's downloaded, but we'll remove the tmp extension once downloaded.
+		// fileName := strings.Trim(target, " ") + "/" + GetSugDec(FileSug, id)
+		fileName := strings.Trim(target, " ")
+		glog.V(8).Info("this is download x1.1 ", fileName)
+		spinner.Message("Creating tmp file")
+		out, err := os.Create(fileName + ".tmp")
+		if err != nil {
+			return err
+		}
+		glog.V(8).Info("this is download x2 ", fileName)
+		// Create our progress reporter and pass it to be used alongside our writer
+		// counter := &WriteCounter{}
+		// if _, err = io.Copy(out, io.TeeReader(resp.Body, counter)); err != nil {
+		// 	out.Close()
+		// 	return err
+		// }
+
+		//-----------------------------
+		spinner.Message("Downloading file")
+
+		if _, err = io.Copy(out, resp.Body); err != nil {
+			out.Close()
+			return err
+		}
+		//-----------------------------
+		glog.V(8).Info("this is download x3")
+		// The progress use the same line so print a new line once it's finished downloading
+		// fmt.Print("\n")
+
+		// Close the file without defer so it can happen before Rename()
 		out.Close()
-		return err
-	}
-	glog.V(8).Info("this is download x3")
-	// The progress use the same line so print a new line once it's finished downloading
-	fmt.Print("\n")
 
-	// Close the file without defer so it can happen before Rename()
-	out.Close()
+		// println("this is download x3-1")
+		if err = os.Rename(fileName+".tmp", fileName); err != nil {
+			// println("this is download x3-2", err.Error())
+			// return err
+			glog.Fatalf("Unable to save files: %v", err)
+		}
+		if err := spinner.Stop(); err != nil {
 
-	// println("this is download x3-1")
-	if err = os.Rename(fileName+".tmp", fileName); err != nil {
-		// println("this is download x3-2", err.Error())
-		// return err
-		glog.Fatalf("Unable to save files: %v", err)
+			glog.Fatalf("Spinner err: %v", err)
+		}
+	} else {
+		glog.V(8).Info("this is download x0", mimeType)
+		// Download Google docs file
+		// fgc := utils.StartSrv(drive.DriveScope).Files.Export(id, mimeType).Do()
+		// resp, err :=
 	}
-	// println("this is download x4")
+
 	return nil
 }
 
-// download file
+// download file by name
 func Download(cmd string) error {
 	//TODO: download file
 
@@ -785,29 +874,9 @@ func Download(cmd string) error {
 		return err
 	}
 	id = iD
-	//2 check the id whether is file or folder
-	// var fis, fods []string
-	files, folders, err := utils.GetFilesAndFolders(id, strings.Trim(fil[0], " "))
-	if err != nil {
-		glog.Errorln("Download failed: ", err.Error())
-		return err
-	}
-	for key, value := range files {
-		glog.V(6).Info("download files: ", key, " : ", value)
-
-	}
-
-	for _, value := range folders {
-		glog.V(6).Info("download folders: ", value)
-
-	}
-	utils.ClearDownloadMap(files)
-	//3 start download
-	// err = downld(id, fil[1])
-	// if err != nil {
-	// 	glog.Errorln("Download failed: ", err.Error())
-	// 	return err
-	// }
+	//2 start download
+	targetPath := strings.Trim(fil[1], " ") + string(os.PathSeparator) + strings.Trim(fil[0], " ")
+	StartingDownload(id, targetPath)
 	return nil
 }
 
@@ -818,195 +887,272 @@ func Downloadd(cmds []string) error {
 	//2 check the id whether is file or folder
 	//3 start download
 
-	err := downld(cmds[1], cmds[2])
+	// err := downld(cmds[1], cmds[2], cmds[1])
+	// if err != nil {
+	// 	glog.Errorln("Download failed: ", err.Error())
+	// 	return err
+	// }
+
+	item, err := utils.StartSrv(drive.DriveScope).
+		// Files.Get(id).
+		Files.Get(cmds[1]).
+		Fields("id, name, mimeType").
+		Do()
 	if err != nil {
-		glog.Errorln("Download failed: ", err.Error())
-		return err
+		// glog.("shit happened: ", err.Error())
+		glog.Fatalf("Unable to retrieve root: %v", err)
+		// return nil
+	}
+	if item.MimeType == "application/vnd.google-apps.folder" {
+		glog.V(6).Info("B7: ", cmds[2])
+		StartingDownload(cmds[1], cmds[2]+string(os.PathSeparator)+item.Name)
+	} else {
+		glog.V(6).Info("B7: ", cmds[2])
+		StartingDownload(cmds[1], cmds[2])
 	}
 	return nil
 }
 
-//------------------------------TESTING BELOW
-// func Lo() {
-//     rl := ratelimit.New(100) // per second
+func generatorDownloader(id, path string, strd string, strf string, out chan string) {
+	// out := make(chan int, 50)
+	go func() {
+		pthSep := string(os.PathSeparator)
+		// qString := "'" + id + "' in parents"
+		qString := "'" + id + "' in parents and trashed=false"
+		// glog.V(8).Info("B1: ", qString)
+		item, err := utils.StartSrv(drive.DriveScope).Files.List().
+			Q(qString).PageSize(40).
+			Fields("nextPageToken, files(id, name, mimeType)").
+			Do()
+		// glog.V(8).Info("B2: ", item.Files)
+		if err != nil {
+			glog.Errorln("file or dir not exist: ", err.Error())
+		}
+		// glog.V(8).Info("B3: ")
+		//speed limit of google drive api 1000 requests per 100 seconds
+		rl := ratelimit.New(5) // per second 5 requests
+		prev := time.Now()
+		// strf = path
+		var pat string
+		var patt string
+		for _, file := range item.Files {
+			// glog.V(8).Info("B4: ")
+			now := rl.Take()
+			if file.MimeType == "application/vnd.google-apps.folder" {
+				patt = pthSep + file.Name
+				// glog.V(8).Info("B5: ", patt)
+				strd = strd + pthSep + file.Name
+				out <- path + strd
+				go generatorDownloader(file.Id, path, strd, strf, out)
+			} else {
+				// glog.V(8).Info("B6: ",patt)
+				pat = strd + pthSep + file.Name + "-/-" + file.Id + "-/-" + file.MimeType
+				pat = strings.ReplaceAll(pat, patt, "")
+				out <- path + pat
+			}
+			now.Sub(prev)
+			prev = now
+		}
+	}()
+	// return out
+}
 
-//     prev := time.Now()
-//     for i := 0; i < 100; i++ {
-//         now := rl.Take()
-//         fmt.Println(i, now.Sub(prev))
-//         prev = now
-//     }
+func downloader(id int, c chan string) {
+	for n := range c {
+		time.Sleep(time.Second)
+		// fmt.Printf("Downloader %d received %s\n",
+		// 	id, n)
+		if strings.Contains(n, "-/-") {
+			target := strings.Split(n, "-/-")
+			// glog.V(8).Infoln("Starting downloading...", target[0], " ", target[1])
+			//3 start download
+			err := downld(target[1], target[0], target[1], target[2])
+			if err != nil {
+				glog.Errorln("Download failed: ", err.Error())
+			}
+		} else {
+			// glog.V(8).Infoln("Creating folder...", n)
+			_, err := os.Stat(n)
+			if os.IsNotExist(err) {
+				err := os.MkdirAll(n, 0755)
+				if err != nil {
+					glog.Errorln("Create folder failed ", err.Error())
+				}
+			}
+			// err := os.MkdirAll(n, os.ModePerm)
+		}
+	}
+}
+
+func createDownloader(id int) chan<- string {
+	c := make(chan string)
+	go downloader(id, c)
+	return c
+}
+
+func StartingDownload(id, path string) {
+
+	glog.V(6).Info("download files: ", id, " : ", path)
+	//-----yacspin-----------------
+	cfg := yacspin.Config{
+		Frequency:         10 * time.Millisecond,
+		CharSet:           yacspin.CharSets[9],
+		Suffix:            "  Starting... ", //+target,
+		SuffixAutoColon:   true,
+		ColorAll:          true,
+		Message:           "Downloading data",
+		StopCharacter:     "✓",
+		StopFailMessage:   "Downloading Failed",
+		StopFailCharacter: "✗",
+		StopFailColors:    []string{"fgRed"},
+		StopColors:        []string{"fgGreen"},
+	}
+
+	spinner, err := yacspin.New(cfg)
+	// handle the error
+	if err != nil {
+		glog.V(8).Info("Spin run error", err.Error())
+		// glog.Fatalf("Spin run error %v", err)
+		// return err
+	}
+
+	if err := spinner.Start(); err != nil {
+		glog.V(8).Info("Spin start error", err.Error())
+		// glog.Fatalf("Spin start error %v", err)
+		// return err
+	}
+	//-----yacspin-----------------
+	out := make(chan string)
+	var fd string
+	var fls string
+	spinner.Message("Preparing data")
+	generatorDownloader(id, path, fd, fls, out)
+	var downloader = createDownloader(0)
+	var i, j int
+	var values []string
+	// tm := time.After(69 * time.Second)
+	tick := time.NewTicker(5 * time.Second)
+
+	if err := spinner.Stop(); err != nil {
+		glog.Fatalf("Spinner err: %v", err)
+	}
+
+	for {
+		var activeDownloader chan<- string
+		var activeValue string
+		if len(values) > 0 {
+			activeDownloader = downloader
+			activeValue = values[0]
+		}
+
+		select {
+		case n := <-out:
+			//add task to buffer
+			values = append(values, n)
+			j++
+		case activeDownloader <- activeValue:
+			// do task
+			values = values[1:]
+			i++
+		// case <-time.After(800 * time.Millisecond):
+		// 	fmt.Println("timeout")
+		case <-tick.C:
+			// if buffer =0 and task count = full buffer size then jump out
+			if len(values) == 0 && i == j {
+				return
+			}
+			// case <-tm:
+			// 	fmt.Println("bye")
+			// return
+		}
+	}
+}
+
+//------------------------------TESTING BELOW
+
+// func Lo() {
+// 	//-----------------------------
+// 	var total int64 = 1024 * 1024 * 1500
+// 	reader := io.LimitReader(rand.Reader, total)
+
+// 	p := mpb.New(
+// 		mpb.WithWidth(60),
+// 		mpb.WithRefreshRate(180*time.Millisecond),
+// 	)
+
+// 	bar := p.AddBar(total, mpb.BarStyle("[=>-|"),
+// 		mpb.PrependDecorators(
+// 			decor.CountersKibiByte("% .2f / % .2f"),
+// 		),
+// 		mpb.AppendDecorators(
+// 			decor.EwmaETA(decor.ET_STYLE_GO, 90),
+// 			decor.Name(" ] "),
+// 			decor.EwmaSpeed(decor.UnitKiB, "% .2f", 60),
+// 		),
+// 	)
+
+// 	// create proxy reader
+// 	proxyReader := bar.ProxyReader(reader)
+// 	defer proxyReader.Close()
+
+// 	// copy from proxyReader, ignoring errors
+// 	_, err := io.Copy(ioutil.Discard, proxyReader)
+// 	if err != nil{
+// 		glog.V(8).Info(err)
+// 	}
+
+// 	p.Wait()
+// 	//-----------------------------
+// }
+//-------------phase 6...
+// var spinChars = `|/-\`
+
+// type Spinner struct {
+// 	message string
+// 	i       int
 // }
 
-// var filesFromSrv = utils.IncrFiles()
-var spinChars = `|/-\`
+// func NewSpinner(message string) *Spinner {
+// 	return &Spinner{message: message}
+// }
 
-type Spinner struct {
-	message string
-	i       int
-}
+// func (s *Spinner) Tick() {
+// 	fmt.Printf("%s %c \r", s.message, spinChars[s.i])
+// 	s.i = (s.i + 1) % len(spinChars)
+// }
 
-func NewSpinner(message string) *Spinner {
-	return &Spinner{message: message}
-}
+// func isTTY() bool {
+// 	fi, err := os.Stdout.Stat()
+// 	if err != nil {
+// 		return false
+// 	}
+// 	return fi.Mode()&os.ModeCharDevice != 0
+// }
 
-func (s *Spinner) Tick() {
-	fmt.Printf("%s %c \r", s.message, spinChars[s.i])
-	s.i = (s.i + 1) % len(spinChars)
-}
+// func Lo() {
+// 	flag.Parse()
+// 	s := NewSpinner("working...")
+// 	isTTY := isTTY()
+// 	// Ps.Pre = "                      [$1 $2]"
+// 	for i := 0; i < 100; i++ {
+// 		fmt.Printf("\rOn %d/10", i)
+// 		if isTTY {
+// 			s.Tick()
+// 		}
+// 		time.Sleep(100 * time.Millisecond)
+// 	}
+// 	Ps.SetPrefix(FixlongStringRunes(0),1)
+// }
 
-func isTTY() bool {
-	fi, err := os.Stdout.Stat()
-	if err != nil {
-		return false
-	}
-	return fi.Mode()&os.ModeCharDevice != 0
-}
-
-func Lo() {
-	flag.Parse()
-	s := NewSpinner("working...")
-	isTTY := isTTY()
-	// Ps.Pre = "                      [$1 $2]"
-	for i := 0; i < 100; i++ {
-		fmt.Printf("\rOn %d/10", i)
-		if isTTY {
-			s.Tick()
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
-	Ps.SetPrefix(FixlongStringRunes(0),1)
-}
-
-func FixlongStringRunes(n int) string {
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = ' '
-	}
-	return string(b)
-}
+// func FixlongStringRunes(n int) string {
+// 	b := make([]byte, n)
+// 	for i := range b {
+// 		b[i] = ' '
+// 	}
+// 	return string(b)
+// }
 
 //-------------phase 5...
-// func generator(id, path string, strd string, strf string, out chan string) {
-// 	// out := make(chan int, 50)
-// 	go func() {
-// 		pthSep := string(os.PathSeparator)
-// 		// qString := "'" + id + "' in parents"
-// 		qString := "'" + id + "' in parents and trashed=false"
-// 		// glog.V(8).Info("B1: ", qString)
-// 		item, err := utils.StartSrv(drive.DriveScope).Files.List().
-// 			Q(qString).PageSize(40).
-// 			Fields("nextPageToken, files(id, name, mimeType)").
-// 			Do()
-// 		// glog.V(8).Info("B2: ", item.Files)
-// 		if err != nil {
-// 			glog.Errorln("file or dir not exist: ", err.Error())
-// 		}
-// 		// glog.V(8).Info("B3: ")
-// 		//speed limit of google drive api 1000 requests per 100 seconds
-// 		rl := ratelimit.New(5) // per second 5 requests
-// 		prev := time.Now()
-// 		// strf = path
-// 		var pat string
-// 		var patt string
-// 		for _, file := range item.Files {
-// 			// glog.V(8).Info("B4: ")
-// 			now := rl.Take()
-// 			if file.MimeType == "application/vnd.google-apps.folder" {
-// 				patt = pthSep +file.Name
-// 				// glog.V(8).Info("B5: ", patt)
-// 				strd = strd + pthSep + file.Name
-// 				out <- path + strd
-// 				go generator(file.Id, path,strd,strf, out)
-// 			} else {
-// 				// glog.V(8).Info("B6: ",patt)
-// 				pat = strd + pthSep + file.Name + "-/-" + file.Id
-// 				pat = strings.ReplaceAll(pat, patt, "")
-// 				out <- path +pat
-// 			}
-// 			now.Sub(prev)
-// 			prev = now
-// 		}
-// 		// glog.V(8).Info("B7: ")
-// 	}()
-// 	// return out
-// }
-
-// func downloader(id int, c chan string) {
-// 	for n := range c {
-// 		time.Sleep(time.Second)
-// 		// fmt.Printf("Downloader %d received %s\n",
-// 		// 	id, n)
-// 		if strings.Contains(n, "-/-"){
-// 			target := strings.Split(n, "-/-")
-// 			// glog.V(8).Infoln("Starting downloading...", target[0], " ", target[1])
-// 			//3 start download
-// 			err:= downld(target[1], target[0])
-// 			if err != nil {
-// 				glog.Errorln("Download failed: ", err.Error())
-// 			}
-// 		}else{
-// 			// glog.V(8).Infoln("Creating folder...", n)
-// 			_, err := os.Stat(n)
-// 			if os.IsNotExist(err) {
-// 				err := os.MkdirAll(n, 0755)
-// 				if err != nil{
-// 					glog.Errorln("Create folder failed ", err.Error())
-// 				}
-// 			}
-// 			// err := os.MkdirAll(n, os.ModePerm)
-// 		}
-// 	}
-// }
-
-// func createDownloader(id int) chan<- string {
-// 	c := make(chan string)
-// 	go downloader(id, c)
-// 	return c
-// }
-
-// func Lo() {
-// 	out := make(chan string)
-// 	var fd string
-// 	var fls string
-// 	generator("19YMYxawcjse0IcqKHrJYyx7yDEA_SLEA", "ioiok",fd,fls, out)
-// 	var downloader = createDownloader(0)
-// 	var i, j int
-// 	var values []string
-// 	// tm := time.After(69 * time.Second)
-// 	tick := time.NewTicker(5 * time.Second)
-
-// 	for {
-// 		var activeDownloader chan<- string
-// 		var activeValue string
-// 		if len(values) > 0 {
-// 			activeDownloader = downloader
-// 			activeValue = values[0]
-// 		}
-
-// 		select {
-// 		case n := <-out:
-// 			//add task to buffer
-// 			values = append(values, n)
-// 			j++
-// 		case activeDownloader <- activeValue:
-// 			// do task
-// 			values = values[1:]
-// 			i++
-// 		// case <-time.After(800 * time.Millisecond):
-// 		// 	fmt.Println("timeout")
-// 		case <-tick.C:
-// 			// if buffer =0 and task count = full buffer size then jump out
-// 			if len(values) == 0 && i == j {
-// 				return
-// 			}
-// 			// case <-tm:
-// 			// 	fmt.Println("bye")
-// 			// return
-// 		}
-// 	}
-// }
-
 //-------------phase 4
 // func recursiveCall(id string, chF, chD chan string) {
 // 	// glog.V(8).Info("B: ")

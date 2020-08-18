@@ -350,8 +350,7 @@ func runCommand(commandStr string) {
 			// service = startSrv()
 			// println("this is login")
 
-			cmd.Ps.SetPrefix(cmd.FixlongStringRunes(26),1)
-			go cmd.Lo()
+			// cmd.Lo()
 			// cmd.BufferedChannel()
 			// cmd.Select()
 
@@ -360,21 +359,21 @@ func runCommand(commandStr string) {
 			if _, err := ii.CreateDir(arrCommandStr[1]); err != nil {
 				glog.Error("Can not create folder" + err.Error())
 			}
-			cmd.Ps.SetPrefix("",0)
+			cmd.Ps.SetPrefix("")
 		case "cd":
 			// println("this is cd")
 			// ii.getNode(arrCommandStr[1])
 			ii.GetNode(commandStr)
-			cmd.Ps.SetPrefix("",0)
+			cmd.Ps.SetPrefix("")
 		case "cdd":
 			// println("this is cd")
 			ii.GetNoded(arrCommandStr[1])
-			cmd.Ps.SetPrefix("",0)
+			cmd.Ps.SetPrefix("")
 		case "mv":
 			if err := ii.Move(commandStr); err != nil {
 				glog.Error("Can not move file" + err.Error())
 			}
-			cmd.Ps.SetPrefix("",0)
+			cmd.Ps.SetPrefix("")
 		case "tr":
 			if arrCommandStr[1] == "-r" {
 				if err := ii.Trash(arrCommandStr[2], arrCommandStr[1]); err != nil {
@@ -385,7 +384,7 @@ func runCommand(commandStr string) {
 					glog.Error("Can not delete file" + err.Error())
 				}
 			}
-			cmd.Ps.SetPrefix("",0)
+			cmd.Ps.SetPrefix("")
 		case "trd":
 			if arrCommandStr[1] == "-r" {
 				if err := ii.Trashd(arrCommandStr[2], arrCommandStr[1]); err != nil {
@@ -396,7 +395,7 @@ func runCommand(commandStr string) {
 					glog.Error("Can not delete file" + err.Error())
 				}
 			}
-			cmd.Ps.SetPrefix("",0)
+			cmd.Ps.SetPrefix("")
 		case "rm":
 			if arrCommandStr[1] == "-r" {
 				if err := ii.Rm(arrCommandStr[2], arrCommandStr[1]); err != nil {
@@ -407,7 +406,7 @@ func runCommand(commandStr string) {
 					glog.Error("Can not delete file" + err.Error())
 				}
 			}
-			cmd.Ps.SetPrefix("",0)
+			cmd.Ps.SetPrefix("")
 		case "rmd":
 			if arrCommandStr[1] == "-r" {
 				if err := ii.Rmd(arrCommandStr[2], arrCommandStr[1]); err != nil {
@@ -418,49 +417,49 @@ func runCommand(commandStr string) {
 					glog.Error("Can not delete file" + err.Error())
 				}
 			}
-			cmd.Ps.SetPrefix("",0)
+			cmd.Ps.SetPrefix("")
 		case "d":
 			err := cmd.Download(commandStr)
 			if err != nil {
 				glog.Errorf("Unable to download files: %v", err.Error())
 			}
-			cmd.Ps.SetPrefix("",0)
+			cmd.Ps.SetPrefix("")
 		case "dd":
 			err := cmd.Downloadd(arrCommandStr)
 			if err != nil {
 				glog.Errorf("Unable to download files: %v", err.Error())
 			}
-			cmd.Ps.SetPrefix("",0)
+			cmd.Ps.SetPrefix("")
 		case "ls":
 			list(arrCommandStr)
-			cmd.Ps.SetPrefix("",0)
+			cmd.Ps.SetPrefix("")
 		case "u":
 			if _, err := ii.Upload(commandStr); err != nil {
 				glog.Error("Can not upload file" + err.Error())
 			}
-			cmd.Ps.SetPrefix("",0)
+			cmd.Ps.SetPrefix("")
 		case "h":
 			for _, cmd := range allCommands {
 				fmt.Printf("%6s: %s %s \n", cmd.name, cmd.param, cmd.tip)
 			}
-			cmd.Ps.SetPrefix("",0)
+			cmd.Ps.SetPrefix("")
 		case "n":
 			counter++
 			if page[counter] == "" {
 				page[counter] = pageToken
 			}
 			next(counter)
-			cmd.Ps.SetPrefix("- Page " + strconv.Itoa(counter),0)
+			cmd.Ps.SetPrefix("- Page " + strconv.Itoa(counter))
 		case "p":
 			if counter > 0 {
 				counter--
 			}
 			pageToken = page[counter]
 			previous(counter)
-			cmd.Ps.SetPrefix("- Page " + strconv.Itoa(counter),0)
+			cmd.Ps.SetPrefix("- Page " + strconv.Itoa(counter))
 		default:
 			fmt.Printf(string(colorRed), "Please check your input or type \"h\" get help")
-			cmd.Ps.SetPrefix("",0)
+			cmd.Ps.SetPrefix("")
 		}
 
 	}
@@ -596,6 +595,10 @@ func clearMap() {
 // name ...
 func userQuery(param, cmd string) *drive.FileList {
 	r := ii.ShowResult(page, counter, param, cmd, drive.DriveScope)
+	if r == nil{
+		fmt.Printf(string(colorRed), "No Result return: ")
+		return nil
+	}
 	pageToken = r.NextPageToken
 	return r
 }
@@ -603,11 +606,18 @@ func userQuery(param, cmd string) *drive.FileList {
 // show next page
 func next(counter int) {
 	r := ii.ShowResult(page, counter, "next", "", drive.DriveScope)
-	pageToken = r.NextPageToken
+	if r == nil{
+		fmt.Printf(string(colorRed), "No Result return: ")
+	}else{
+		pageToken = r.NextPageToken
+	}
 }
 
 // show previous page
 func previous(counter int) {
-	ii.ShowResult(page, counter, "previous", "", drive.DriveScope)
+	r := ii.ShowResult(page, counter, "previous", "", drive.DriveScope)
+	if r == nil{
+		fmt.Printf(string(colorRed), "No Result return: ")
+	}
 }
 
