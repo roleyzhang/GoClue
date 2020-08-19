@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
+
 	// "math/rand"
 	// "flag"
 	"os"
@@ -12,6 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
 	// "io/ioutil"
 	// "sync"
 	// "strconv"
@@ -19,12 +22,14 @@ import (
 
 	// "os/exec"
 	"github.com/c-bata/go-prompt"
-	// "github.com/dustin/go-humanize"
+	"github.com/dustin/go-humanize"
 	"github.com/roleyzhang/GoClue/utils"
 	"github.com/theckman/yacspin"
 	"go.uber.org/ratelimit"
 	"golang.org/x/net/context"
 	"google.golang.org/api/drive/v3"
+	"github.com/cheynewallace/tabby"
+	. "github.com/logrusorgru/aurora"
 )
 
 var qString string
@@ -37,8 +42,8 @@ var AllSug *[]prompt.Suggest
 var IdfileSug *[]prompt.Suggest
 var IddirSug *[]prompt.Suggest
 
-var colorGreen string
-var colorCyan string
+// var colorGreen string
+// var colorCyan string
 var colorYellow string
 var colorRed string
 
@@ -53,6 +58,7 @@ type ItemInfo struct {
 	Path   map[string]string
 	RootId string
 	ItemId string
+	maxLength int
 }
 
 type PromptStyle struct {
@@ -64,8 +70,8 @@ type PromptStyle struct {
 }
 
 func init() {
-	colorGreen = "\033[32m%26s  %s\t%s\t%s\t%s\n"
-	colorCyan = "\033[36m%26s  %s\t%s\t%s\t%s\n"
+	// colorGreen = "\033[32m%26s  %s\t%s\t%s\t%s\n"
+	// colorCyan = "\033[36m%26s  %s\t%s\t%s\t%s\n"
 	colorYellow = "\033[33m%s %s %s\n"
 	colorRed = "\033[31m%s\n"
 
@@ -86,6 +92,7 @@ func init() {
 		Path:   make(map[string]string),
 		RootId: "",
 		ItemId: "",
+		maxLength: 40,
 	}
 
 	Ps = PromptStyle{
@@ -245,8 +252,7 @@ func breakDown(path string) []string {
 func (ii *ItemInfo) ShowResult(
 	page map[int]string,
 	counter int,
-	param, cmd, scope string) *drive.FileList {
-	// This should testing by change the authorize token
+	param, cmd, scope string) *drive.FileList {	// This should testing by change the authorize token
 	// r, err := startSrv("https://www.googleapis.com/auth/drive.photos.readonly").Files.List().
 	// Spaces("drive").
 	// Q("mimeType = 'application/vnd.google-apps.shortcut' or starred").
@@ -337,11 +343,25 @@ func (ii *ItemInfo) ShowResult(
 		fmt.Printf(string(colorYellow), "No files found.", "", "")
 		// fmt.Println("No files found.")
 	} else {
+		t := tabby.New()
+		t.AddHeader("NAME", "ID", "TYPE", "OWNER", "CREATED TIME")
 		for _, i := range r.Files {
 			if i.MimeType == "application/vnd.google-apps.folder" {
-				// fmt.Println(string(colorGreen), i.Name, i.Id, i.MimeType, i.Owners[0].DisplayName, i.CreatedTime)
 				// fmt.Printf(string(colorGreen), i.Name, i.Id, i.MimeType, i.Owners[0].DisplayName, i.Parents, i.CreatedTime)
-				fmt.Printf(string(colorGreen), i.Name, i.Id, i.MimeType, i.Owners[0].DisplayName, i.CreatedTime)
+				var name string
+				var types string
+				if len(i.Name) > ii.maxLength {
+					name = i.Name[:ii.maxLength]+"..."
+				}else{
+					name = i.Name
+				}
+				types = strings.Split(i.MimeType, "/")[1]
+				t.AddLine(Bold(Cyan(name)),
+					Bold(Cyan(i.Id)),
+					Bold(Cyan(types)),
+					Bold(Cyan(i.Owners[0].DisplayName)),
+					Bold(Cyan(i.CreatedTime)))
+				// fmt.Printf(string(colorGreen), i.Name, i.Id, i.MimeType, i.Owners[0].DisplayName, i.CreatedTime)
 				s := prompt.Suggest{Text: i.Id, Description: i.Name}
 				s2 := prompt.Suggest{Text: i.Name, Description: i.Id}
 				DirSug = dirInfo(s2)
@@ -351,7 +371,19 @@ func (ii *ItemInfo) ShowResult(
 				// 	dirSug = dirInfo(s)
 			} else {
 				// fmt.Printf(string(colorCyan), i.Name, i.Id, i.MimeType, i.Owners[0].DisplayName, i.Parents, i.CreatedTime)
-				fmt.Printf(string(colorCyan), i.Name, i.Id, i.MimeType, i.Owners[0].DisplayName, i.CreatedTime)
+				var name string
+				var types string
+				if len(i.Name) > ii.maxLength {
+					name = i.Name[:ii.maxLength]+"..."
+				}else{
+					name = i.Name
+				}
+				types = strings.Split(i.MimeType, "/")[1]
+				t.AddLine(Green(name),
+					Green(i.Id),
+					Green(types),
+					Green(i.Owners[0].DisplayName),
+					Green(i.CreatedTime))
 				s := prompt.Suggest{Text: i.Id, Description: i.Name}
 				s2 := prompt.Suggest{Text: i.Name, Description: i.Id}
 				FileSug = fileInfo(s2)
@@ -359,6 +391,7 @@ func (ii *ItemInfo) ShowResult(
 				IdfileSug = idfileInfo(s)
 			}
 		}
+		t.Print()
 	}
 	if err := spinner.Stop(); err != nil {
 		glog.Fatalf("Spinner err: %v", err)
@@ -716,26 +749,33 @@ func (ii *ItemInfo) Move(cmd string) error {
 
 // WriteCounter counts the number of bytes written to it. It implements to the io.Writer interface
 // and we can pass this into io.TeeReader() which will report progress on each write cycle.
-// type WriteCounter struct {
-// 	Total uint64
-// }
+type WriteCounter struct {
+	Total uint64
+	Spinner *yacspin.Spinner
+	Amount uint64
+}
 
-// func (wc *WriteCounter) Write(p []byte) (int, error) {
-// 	n := len(p)
-// 	wc.Total += uint64(n)
-// 	wc.PrintProgress()
-// 	return n, nil
-// }
+func (wc *WriteCounter) Write(p []byte) (int, error) {
+	n := len(p)
+	wc.Total += uint64(n)
+	wc.PrintProgress()
+	return n, nil
+}
 
-// func (wc WriteCounter) PrintProgress() {
-// 	// Clear the line by using a character return to go back to the start and remove
-// 	// the remaining characters by filling it with spaces
-// 	fmt.Printf("\r%s", strings.Repeat(" ", 35))
-// 	// Return again and print current status of download
-// 	// We use the humanize package to print the bytes in a meaningful way (e.g. 10 MB)
-// 	fmt.Printf("\rDownloading... %s complete", humanize.Bytes(wc.Total))
-// 	// msg("Downloading... "+ humanize.Bytes(wc.Total)+ " complete ")
-// }
+func (wc WriteCounter) PrintProgress() {
+	// Clear the line by using a character return to go back to the start and remove
+	// the remaining characters by filling it with spaces
+	// fmt.Printf("%s", strings.Repeat(" ", 35))
+	// Return again and print current status of download
+	// We use the humanize package to print the bytes in a meaningful way (e.g. 10 MB)
+	// fmt.Printf(". %s complete", humanize.Bytes(wc.Total))
+
+	rate := wc.Total * 100/ wc.Amount
+	mesg := fmt.Sprintf("downloading  %d%%  %s / %s",
+		Brown(rate) ,Brown(humanize.Bytes(wc.Total)), Brown(humanize.Bytes(wc.Amount)))
+	wc.Spinner.Message(mesg)
+	// msg("Downloading... "+ humanize.Bytes(wc.Total)+ " complete ")
+}
 
 // getSugDec ...
 func GetSugDec(sug *[]prompt.Suggest, text string) string {
@@ -755,7 +795,7 @@ func GetSugDec(sug *[]prompt.Suggest, text string) string {
 }
 
 // downld ...
-func downld(id, target, filename, mimeType string) error {
+func downld(id, target, filename, mimeType, path string) error {
 	glog.V(8).Info("this is download debug ", id, target)
 	//-----yacspin-----------------
 	cfg := yacspin.Config{
@@ -786,71 +826,80 @@ func downld(id, target, filename, mimeType string) error {
 		return err
 	}
 	//-----yacspin-----------------
-
+	var resp *http.Response
+	var fileName string
 	// Download binary file
 	if mimeType != "application/vnd.google-apps.document" {
 		fgc := utils.StartSrv(drive.DriveScope).Files.Get(id)
 		fgc.Header().Add("alt", "media")
-		resp, err := fgc.Download()
-
-		if err != nil {
-			glog.V(8).Info("this is download x0", err.Error())
-			// glog.Fatalf("Unable to retrieve files: %v", err)
-			if err := spinner.StopFail(); err != nil {
-				return err
-			}
-			return err
-		}
-		glog.V(8).Info("this is download x1", id)
-		defer resp.Body.Close()
-		// Create the file, but give it a tmp file extension, this means we won't overwrite a
-		// file until it's downloaded, but we'll remove the tmp extension once downloaded.
-		// fileName := strings.Trim(target, " ") + "/" + GetSugDec(FileSug, id)
-		fileName := strings.Trim(target, " ")
-		glog.V(8).Info("this is download x1.1 ", fileName)
-		spinner.Message("Creating tmp file")
-		out, err := os.Create(fileName + ".tmp")
-		if err != nil {
-			return err
-		}
-		glog.V(8).Info("this is download x2 ", fileName)
-		// Create our progress reporter and pass it to be used alongside our writer
-		// counter := &WriteCounter{}
-		// if _, err = io.Copy(out, io.TeeReader(resp.Body, counter)); err != nil {
-		// 	out.Close()
-		// 	return err
-		// }
-
-		//-----------------------------
-		spinner.Message("Downloading file")
-
-		if _, err = io.Copy(out, resp.Body); err != nil {
-			out.Close()
-			return err
-		}
-		//-----------------------------
-		glog.V(8).Info("this is download x3")
-		// The progress use the same line so print a new line once it's finished downloading
-		// fmt.Print("\n")
-
-		// Close the file without defer so it can happen before Rename()
-		out.Close()
-
-		// println("this is download x3-1")
-		if err = os.Rename(fileName+".tmp", fileName); err != nil {
-			// println("this is download x3-2", err.Error())
-			// return err
-			glog.Fatalf("Unable to save files: %v", err)
-		}
-		if err := spinner.Stop(); err != nil {
-
-			glog.Fatalf("Spinner err: %v", err)
-		}
+		resp, err = fgc.Download()
+		fileName = strings.Trim(target, " ")
 	} else {
 		glog.V(8).Info("this is download x0", mimeType)
 		// Download Google docs file
-		// fgc := utils.StartSrv(drive.DriveScope).Files.Export(id, mimeType).Do()
-		// resp, err :=
+		resp, err = utils.StartSrv(drive.DriveScope).Files.
+			Export(id, "application/zip").Download()
+		fileName = strings.Trim(target, " ") + ".zip"
+	}
+	if err != nil {
+		glog.V(8).Info("this is download x0", err.Error())
+		// glog.Fatalf("Unable to retrieve files: %v", err)
+		if err := spinner.StopFail(); err != nil {
+			return err
+		}
+		return err
+	}
+	glog.V(8).Info("this is download x1", id)
+	defer resp.Body.Close()
+	// Create the file, but give it a tmp file extension, this means we won't overwrite a
+	// file until it's downloaded, but we'll remove the tmp extension once downloaded.
+	// fileName := strings.Trim(target, " ") + "/" + GetSugDec(FileSug, id)
+	glog.V(8).Info("this is download x1.1 ", fileName)
+	spinner.Message("Creating tmp file")
+
+	_, err = os.Stat(path)
+	if os.IsNotExist(err) {
+		err := os.MkdirAll(path, 0755)
+		if err != nil {
+			glog.Errorln("Create folder failed ", err.Error())
+			return err
+		}
+	}
+	out, err := os.Create(fileName + ".tmp")
+	if err != nil {
+		return err
+	}
+	glog.V(8).Info("this is download x2 ", fileName)
+	// Create our progress reporter and pass it to be used alongside our writer
+	//-----------------------------
+	counter := &WriteCounter{ Spinner: spinner, Amount: uint64(resp.ContentLength)}
+	if _, err = io.Copy(out, io.TeeReader(resp.Body, counter)); err != nil {
+		out.Close()
+		return err
+	}
+
+
+	// if _, err = io.Copy(out, resp.Body); err != nil {
+	// 	out.Close()
+	// 	return err
+	// }
+	//-----------------------------
+	glog.V(8).Info("this is download x3")
+	// The progress use the same line so print a new line once it's finished downloading
+	// fmt.Print("\n")
+
+	// Close the file without defer so it can happen before Rename()
+	out.Close()
+
+	// println("this is download x3-1")
+	if err = os.Rename(fileName+".tmp", fileName); err != nil {
+		// println("this is download x3-2", err.Error())
+		// return err
+		glog.Fatalf("Unable to save files: %v", err)
+	}
+	if err := spinner.Stop(); err != nil {
+
+		glog.Fatalf("Spinner err: %v", err)
 	}
 
 	return nil
@@ -927,6 +976,7 @@ func generatorDownloader(id, path string, strd string, strf string, out chan str
 		// glog.V(8).Info("B2: ", item.Files)
 		if err != nil {
 			glog.Errorln("file or dir not exist: ", err.Error())
+			return
 		}
 		// glog.V(8).Info("B3: ")
 		//speed limit of google drive api 1000 requests per 100 seconds
@@ -945,8 +995,8 @@ func generatorDownloader(id, path string, strd string, strf string, out chan str
 				out <- path + strd
 				go generatorDownloader(file.Id, path, strd, strf, out)
 			} else {
-				// glog.V(8).Info("B6: ",patt)
-				pat = strd + pthSep + file.Name + "-/-" + file.Id + "-/-" + file.MimeType
+				// glog.V(8).Info("B6: ", patt, strd, strf)
+				pat = strd + pthSep + file.Name + "-/-" + file.Id + "-/-" + file.MimeType + "-/-" + path
 				pat = strings.ReplaceAll(pat, patt, "")
 				out <- path + pat
 			}
@@ -964,9 +1014,10 @@ func downloader(id int, c chan string) {
 		// 	id, n)
 		if strings.Contains(n, "-/-") {
 			target := strings.Split(n, "-/-")
+			glog.V(8).Infoln("------n >: ", target[3])
 			// glog.V(8).Infoln("Starting downloading...", target[0], " ", target[1])
 			//3 start download
-			err := downld(target[1], target[0], target[1], target[2])
+			err := downld(target[1], target[0], target[1], target[2], target[3])
 			if err != nil {
 				glog.Errorln("Download failed: ", err.Error())
 			}

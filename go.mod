@@ -6,6 +6,7 @@ require (
 	github.com/bradleyfalzon/revgrep v0.0.0-20170920092642-c04006dc3307 // indirect
 	github.com/buger/goterm v0.0.0-20200322175922-2f3e71b85129
 	github.com/c-bata/go-prompt v0.2.3
+	github.com/cheynewallace/tabby v1.1.0
 	github.com/cweill/gotests v1.5.3 // indirect
 	github.com/davidrjenni/reftools v0.0.0-20191222082827-65925cf01315 // indirect
 	github.com/dustin/go-humanize v1.0.0
@@ -22,10 +23,12 @@ require (
 	github.com/golangci/golangci-lint v1.29.0 // indirect
 	github.com/golangci/maligned v0.0.0-20180506175553-b1d89398deca // indirect
 	github.com/golangci/revgrep v0.0.0-20180812185044-276a5c0a1039 // indirect
+	github.com/gosuri/uilive v0.0.4
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/haya14busa/gopkgs v1.0.0 // indirect
 	github.com/jirfag/go-printf-func-name v0.0.0-20200119135958-7558a9eaa5af // indirect
 	github.com/kyoh86/exportloopref v0.1.7 // indirect
+	github.com/logrusorgru/aurora v0.0.0-20181002194514-a7b3b318ed4e
 	github.com/magiconair/properties v1.8.1 // indirect
 	github.com/matoous/godox v0.0.0-20190911065817-5d6d842e92eb // indirect
 	github.com/mattn/go-colorable v0.1.7 // indirect
