@@ -22,14 +22,14 @@ import (
 
 	// "os/exec"
 	"github.com/c-bata/go-prompt"
+	"github.com/cheynewallace/tabby"
 	"github.com/dustin/go-humanize"
+	. "github.com/logrusorgru/aurora"
 	"github.com/roleyzhang/GoClue/utils"
 	"github.com/theckman/yacspin"
 	"go.uber.org/ratelimit"
 	"golang.org/x/net/context"
 	"google.golang.org/api/drive/v3"
-	"github.com/cheynewallace/tabby"
-	. "github.com/logrusorgru/aurora"
 )
 
 var qString string
@@ -56,9 +56,9 @@ var Ii ItemInfo
 
 type ItemInfo struct {
 	// item       *drive.File
-	Path   map[string]string
-	RootId string
-	ItemId string
+	Path      map[string]string
+	RootId    string
+	ItemId    string
 	maxLength int
 }
 
@@ -90,9 +90,9 @@ func init() {
 	commands["c"] = "fullText contains '$' and trashed=false"
 
 	Ii = ItemInfo{
-		Path:   make(map[string]string),
-		RootId: "",
-		ItemId: "",
+		Path:      make(map[string]string),
+		RootId:    "",
+		ItemId:    "",
 		maxLength: 40,
 	}
 
@@ -253,7 +253,7 @@ func breakDown(path string) []string {
 func (ii *ItemInfo) ShowResult(
 	page map[int]string,
 	counter int,
-	param, cmd, scope string) *drive.FileList {	// This should testing by change the authorize token
+	param, cmd, scope string) *drive.FileList { // This should testing by change the authorize token
 	// r, err := startSrv("https://www.googleapis.com/auth/drive.photos.readonly").Files.List().
 	// Spaces("drive").
 	// Q("mimeType = 'application/vnd.google-apps.shortcut' or starred").
@@ -353,8 +353,8 @@ func (ii *ItemInfo) ShowResult(
 				var name string
 				var types string
 				if len(i.Name) > ii.maxLength {
-					name = i.Name[:ii.maxLength]+"..."
-				}else{
+					name = i.Name[:ii.maxLength] + "..."
+				} else {
 					name = i.Name
 				}
 				types = strings.Split(i.MimeType, "/")[1]
@@ -377,8 +377,8 @@ func (ii *ItemInfo) ShowResult(
 				var name string
 				var types string
 				if len(i.Name) > ii.maxLength {
-					name = i.Name[:ii.maxLength]+"..."
-				}else{
+					name = i.Name[:ii.maxLength] + "..."
+				} else {
 					name = i.Name
 				}
 				types = strings.Split(i.MimeType, "/")[1]
@@ -389,7 +389,7 @@ func (ii *ItemInfo) ShowResult(
 						Gray(i.Owners[0].DisplayName),
 						Gray(i.CreatedTime))
 
-				}else{
+				} else {
 					t.AddLine(Green(name),
 						Green(i.Id),
 						Green(types),
@@ -764,9 +764,9 @@ func (ii *ItemInfo) Move(cmd string) error {
 // WriteCounter counts the number of bytes written to it. It implements to the io.Writer interface
 // and we can pass this into io.TeeReader() which will report progress on each write cycle.
 type WriteCounter struct {
-	Total uint64
+	Total   uint64
 	Spinner *yacspin.Spinner
-	Amount uint64
+	Amount  uint64
 }
 
 func (wc *WriteCounter) Write(p []byte) (int, error) {
@@ -784,9 +784,9 @@ func (wc WriteCounter) PrintProgress() {
 	// We use the humanize package to print the bytes in a meaningful way (e.g. 10 MB)
 	// fmt.Printf(". %s complete", humanize.Bytes(wc.Total))
 
-	rate := wc.Total * 100/ wc.Amount
+	rate := wc.Total * 100 / wc.Amount
 	mesg := fmt.Sprintf("downloading  %d%%  %s / %s",
-		Brown(rate) ,Brown(humanize.Bytes(wc.Total)), Brown(humanize.Bytes(wc.Amount)))
+		Brown(rate), Brown(humanize.Bytes(wc.Total)), Brown(humanize.Bytes(wc.Amount)))
 	wc.Spinner.Message(mesg)
 	// msg("Downloading... "+ humanize.Bytes(wc.Total)+ " complete ")
 }
@@ -886,12 +886,11 @@ func downld(id, target, filename, mimeType, path string) error {
 	glog.V(8).Info("this is download x2 ", fileName)
 	// Create our progress reporter and pass it to be used alongside our writer
 	//-----------------------------
-	counter := &WriteCounter{ Spinner: spinner, Amount: uint64(resp.ContentLength)}
+	counter := &WriteCounter{Spinner: spinner, Amount: uint64(resp.ContentLength)}
 	if _, err = io.Copy(out, io.TeeReader(resp.Body, counter)); err != nil {
 		out.Close()
 		return err
 	}
-
 
 	// if _, err = io.Copy(out, resp.Body); err != nil {
 	// 	out.Close()
@@ -955,7 +954,7 @@ func Downloadd(cmds []string) error {
 	// 	glog.Errorln("Download failed: ", err.Error())
 	// 	return err
 	// }
-	if len(cmds) < 3{
+	if len(cmds) < 3 {
 		return errors.New("command line lack param")
 	}
 
@@ -979,7 +978,37 @@ func Downloadd(cmds []string) error {
 	return nil
 }
 
-func generatorDownloader(id, path string, strd string, strf string, out chan string) {
+func generatorDownloader(id, path string, strd string, strf string, out, stop chan string) {
+
+	//-----yacspin-----------------
+	cfg := yacspin.Config{
+		Frequency:         100 * time.Millisecond,
+		CharSet:           yacspin.CharSets[3],
+		// Suffix:            "  Starting... ", //+target,
+		SuffixAutoColon:   true,
+		ColorAll:          true,
+		// Message:           "Downloading data",
+		StopCharacter:     "*",
+		// StopFailMessage:   "Downloading Failed",
+		StopFailCharacter: "✗",
+		StopFailColors:    []string{"fgRed"},
+		StopColors:        []string{"fgGreen"},
+	}
+
+	spinner, err := yacspin.New(cfg)
+	// handle the error
+	if err != nil {
+		glog.V(8).Info("Spin run error", err.Error())
+		// glog.Fatalf("Spin run error %v", err)
+		// return err
+	}
+
+	if err := spinner.Start(); err != nil {
+		glog.V(8).Info("Spin start error", err.Error())
+		// glog.Fatalf("Spin start error %v", err)
+		// return err
+	}
+	//-----yacspin-----------------
 	// out := make(chan int, 50)
 	go func() {
 		pthSep := string(os.PathSeparator)
@@ -995,15 +1024,29 @@ func generatorDownloader(id, path string, strd string, strf string, out chan str
 			return
 		}
 		glog.V(8).Info("B2: ", item.Files, len(item.Files))
-		if len(item.Files) == 0{
-			// file, err := utils.StartSrv(drive.DriveScope).Files.Get(id).Do()
-
-			file, err := utils.StartSrv(drive.DriveScope).
-				Files.Get(iD).Fields("id, name, mimeType, parents, createdTime").Do()
+		if len(item.Files) == 0 {
+			fil, err := utils.StartSrv(drive.DriveScope).Files.Get(id).Do()
 			if err != nil {
 				glog.Error("file or dir not exist: ", err.Error())
 			}
-			glog.V(8).Info("B3: ", file.MimeType, file.ShortcutDetails)
+			switch fil.MimeType {
+			case "application/vnd.google-apps.shortcut":
+				spinner.StopFailMessage("   Google Drive Shortcut cannot be downloaded")
+				if err := spinner.StopFail(); err != nil {
+					glog.Error("B3 shortcut: ", err)
+				}
+				stop<-"stop"
+			case "application/vnd.google-apps.folder":
+				spinner.StopFailMessage("   Empty folder cannot be downloaded")
+				if err := spinner.StopFail(); err != nil {
+					glog.Error("B3 empty folder: ", err)
+				}
+				stop<-"stop"
+			default:
+				glog.V(8).Info("B3 default: ", path+"/"+fil.Name, fil.MimeType, fil.ShortcutDetails)
+				//send id to out chan
+				// make a global spinner 
+			}
 
 		}
 		// glog.V(8).Info("B3: ")
@@ -1021,7 +1064,7 @@ func generatorDownloader(id, path string, strd string, strf string, out chan str
 				// glog.V(8).Info("B5: ", patt)
 				strd = strd + pthSep + file.Name
 				out <- path + strd
-				go generatorDownloader(file.Id, path, strd, strf, out)
+				go generatorDownloader(file.Id, path, strd, strf, out, stop)
 			} else {
 				// glog.V(8).Info("B6: ", patt, strd, strf)
 				pat = strd + pthSep + file.Name + "-/-" + file.Id + "-/-" + file.MimeType + "-/-" + path
@@ -1033,6 +1076,9 @@ func generatorDownloader(id, path string, strd string, strf string, out chan str
 		}
 	}()
 	// return out
+	// if err := spinner.Stop(); err != nil {
+	// 	glog.Error("spinner error: ", err)
+	// }
 }
 
 func downloader(id int, c chan string) {
@@ -1102,10 +1148,11 @@ func StartingDownload(id, path string) {
 	}
 	//-----yacspin-----------------
 	out := make(chan string)
+	stop := make(chan string)
 	var fd string
 	var fls string
 	spinner.Message("Preparing data")
-	generatorDownloader(id, path, fd, fls, out)
+	generatorDownloader(id, path, fd, fls, out, stop)
 	var downloader = createDownloader(0)
 	var i, j int
 	var values []string
@@ -1143,6 +1190,8 @@ func StartingDownload(id, path string) {
 			// case <-tm:
 			// 	fmt.Println("bye")
 			// return
+		case <-stop:
+			return
 		}
 	}
 }
