@@ -41,6 +41,7 @@ var PathSug *[]prompt.Suggest
 var AllSug *[]prompt.Suggest
 var IdfileSug *[]prompt.Suggest
 var IddirSug *[]prompt.Suggest
+var IdAllSug *[]prompt.Suggest
 
 // var colorGreen string
 // var colorCyan string
@@ -298,6 +299,7 @@ func (ii *ItemInfo) ShowResult(
 	allInfo := getSugInfo()
 	idfileInfo := getSugInfo()
 	iddirInfo := getSugInfo()
+	idAllInfo := getSugInfo()
 
 	//--------every time runCommand add folder history to dirSug
 	for key, value := range ii.Path {
@@ -367,6 +369,7 @@ func (ii *ItemInfo) ShowResult(
 				DirSug = dirInfo(s2)
 				AllSug = allInfo(s2)
 				IddirSug = iddirInfo(s)
+				IdAllSug = idAllInfo(s)
 				// 	s := prompt.Suggest{Text: i.Id, Description: i.Name}
 				// 	dirSug = dirInfo(s)
 			} else {
@@ -379,16 +382,26 @@ func (ii *ItemInfo) ShowResult(
 					name = i.Name
 				}
 				types = strings.Split(i.MimeType, "/")[1]
-				t.AddLine(Green(name),
-					Green(i.Id),
-					Green(types),
-					Green(i.Owners[0].DisplayName),
-					Green(i.CreatedTime))
+				if i.MimeType == "application/vnd.google-apps.shortcut" {
+					t.AddLine(Gray(name),
+						Gray(i.Id),
+						Gray(types),
+						Gray(i.Owners[0].DisplayName),
+						Gray(i.CreatedTime))
+
+				}else{
+					t.AddLine(Green(name),
+						Green(i.Id),
+						Green(types),
+						Green(i.Owners[0].DisplayName),
+						Green(i.CreatedTime))
+				}
 				s := prompt.Suggest{Text: i.Id, Description: i.Name}
 				s2 := prompt.Suggest{Text: i.Name, Description: i.Id}
 				FileSug = fileInfo(s2)
 				AllSug = allInfo(s2)
 				IdfileSug = idfileInfo(s)
+				IdAllSug = idAllInfo(s)
 			}
 		}
 		t.Print()
@@ -697,7 +710,8 @@ func (ii *ItemInfo) Move(cmd string) error {
 		glog.Errorln("file or dir not exist: " + err.Error())
 		return err
 	}
-	file, err := utils.StartSrv(drive.DriveScope).Files.Get(iD).Fields("id, name, mimeType, parents, createdTime").Do()
+	file, err := utils.StartSrv(drive.DriveScope).
+		Files.Get(iD).Fields("id, name, mimeType, parents, createdTime").Do()
 	if err != nil {
 		glog.Errorln("file or dir not exist: ", err.Error())
 		return err
@@ -941,6 +955,9 @@ func Downloadd(cmds []string) error {
 	// 	glog.Errorln("Download failed: ", err.Error())
 	// 	return err
 	// }
+	if len(cmds) < 3{
+		return errors.New("command line lack param")
+	}
 
 	item, err := utils.StartSrv(drive.DriveScope).
 		// Files.Get(id).
@@ -973,10 +990,21 @@ func generatorDownloader(id, path string, strd string, strf string, out chan str
 			Q(qString).PageSize(40).
 			Fields("nextPageToken, files(id, name, mimeType)").
 			Do()
-		// glog.V(8).Info("B2: ", item.Files)
 		if err != nil {
 			glog.Errorln("file or dir not exist: ", err.Error())
 			return
+		}
+		glog.V(8).Info("B2: ", item.Files, len(item.Files))
+		if len(item.Files) == 0{
+			// file, err := utils.StartSrv(drive.DriveScope).Files.Get(id).Do()
+
+			file, err := utils.StartSrv(drive.DriveScope).
+				Files.Get(iD).Fields("id, name, mimeType, parents, createdTime").Do()
+			if err != nil {
+				glog.Error("file or dir not exist: ", err.Error())
+			}
+			glog.V(8).Info("B3: ", file.MimeType, file.ShortcutDetails)
+
 		}
 		// glog.V(8).Info("B3: ")
 		//speed limit of google drive api 1000 requests per 100 seconds

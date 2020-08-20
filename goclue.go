@@ -104,6 +104,7 @@ func completer(in prompt.Document) []prompt.Suggest {
 	allSug = cmd.AllSug
 	idfileSug = cmd.IdfileSug
 	iddirSug = cmd.IddirSug
+	idallSug = cmd.IdAllSug
 	arrCommandStr := strings.Fields(in.TextBeforeCursor())
 
 	// fmt.Println("Your input: ",len(arrCommandStr) ,in.TextBeforeCursor())
@@ -143,7 +144,7 @@ func completer(in prompt.Document) []prompt.Suggest {
 			}
 		case "dd":
 			if idfileSug != nil {
-				s = *idfileSug
+				s = *idallSug
 			}
 			// if allSug != nil {
 			// 	s = *allSug
@@ -297,6 +298,7 @@ var pathSug *[]prompt.Suggest
 var allSug *[]prompt.Suggest
 var idfileSug *[]prompt.Suggest
 var iddirSug *[]prompt.Suggest
+var idallSug *[]prompt.Suggest
 var colorRed string
 
 var ii cmd.ItemInfo
