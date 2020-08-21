@@ -42,7 +42,8 @@ var AllSug *[]prompt.Suggest
 var IdfileSug *[]prompt.Suggest
 var IddirSug *[]prompt.Suggest
 var IdAllSug *[]prompt.Suggest
-
+var cfg *yacspin.Config
+var pthSep string
 // var colorGreen string
 // var colorCyan string
 var colorYellow string
@@ -103,6 +104,22 @@ func init() {
 		Info:     "",
 		Status:   "",
 	}
+
+
+	cfg = &yacspin.Config{
+		Frequency:         300 * time.Millisecond,
+		// CharSet:           yacspin.CharSets[31],
+		Suffix:            "", //+target,
+		SuffixAutoColon:   true,
+		ColorAll:          true,
+		Message:           "",
+		StopCharacter:     "✓",
+		StopFailMessage:   "",
+		StopFailCharacter: "✗",
+		StopFailColors:    []string{"fgRed"},
+		StopColors:        []string{"fgGreen"},
+	}
+	pthSep = string(os.PathSeparator)
 }
 
 // getSugId ...
@@ -266,26 +283,14 @@ func (ii *ItemInfo) ShowResult(
 	// colorCyan := "\033[36m%26s  %s\t%s\t%s\t%s\n"
 
 	//-----yacspin-----------------
-	cfg := yacspin.Config{
-		Frequency:         100 * time.Millisecond,
-		CharSet:           yacspin.CharSets[31],
-		Suffix:            "", //+target,
-		SuffixAutoColon:   true,
-		ColorAll:          true,
-		Message:           "",
-		StopCharacter:     "✓",
-		StopFailMessage:   "",
-		StopFailCharacter: "✗",
-		StopFailColors:    []string{"fgRed"},
-		StopColors:        []string{"fgGreen"},
+	spinner, err := yacspin.New(*cfg)
+	if err != nil {
+		glog.V(8).Info("Spin run error", err.Error())
 	}
-
-	spinner, err := yacspin.New(cfg)
+	err = spinner.CharSet(yacspin.CharSets[31])
 	// handle the error
 	if err != nil {
 		glog.V(8).Info("Spin run error", err.Error())
-		// glog.Fatalf("Spin run error %v", err)
-		// return err
 	}
 
 	if err := spinner.Start(); err != nil {
@@ -812,32 +817,27 @@ func GetSugDec(sug *[]prompt.Suggest, text string) string {
 func downld(id, target, filename, mimeType, path string) error {
 	glog.V(8).Info("this is download debug ", id, target)
 	//-----yacspin-----------------
-	cfg := yacspin.Config{
-		Frequency:         600 * time.Millisecond,
-		CharSet:           yacspin.CharSets[50],
-		Suffix:            " Downloading to " + target,
-		SuffixAutoColon:   true,
-		ColorAll:          true,
-		Message:           "Downloading data",
-		StopCharacter:     "✓",
-		StopFailMessage:   "Downloading Failed",
-		StopFailCharacter: "✗",
-		StopFailColors:    []string{"fgRed"},
-		StopColors:        []string{"fgGreen"},
+	spinner, err := yacspin.New(*cfg)
+	if err != nil {
+		glog.Error("Spin run error", err.Error())
 	}
-
-	spinner, err := yacspin.New(cfg)
+	if err := spinner.Frequency(300 * time.Millisecond); err != nil{
+		glog.Error("Spin run error", err.Error())
+	}
+	msg := fmt.Sprintf("Downloading %s", target)
+	spinner.Suffix(msg)
+	msgs := fmt.Sprintf("...to %s %s", path, Brown("done"))
+	spinner.StopMessage(msgs)
+	err = spinner.CharSet(yacspin.CharSets[50])
 	// handle the error
 	if err != nil {
 		glog.V(8).Info("Spin run error", err.Error())
-		// glog.Fatalf("Spin run error %v", err)
-		return err
 	}
 
 	if err := spinner.Start(); err != nil {
 		glog.V(8).Info("Spin start error", err.Error())
 		// glog.Fatalf("Spin start error %v", err)
-		return err
+		// return err
 	}
 	//-----yacspin-----------------
 	var resp *http.Response
@@ -868,8 +868,8 @@ func downld(id, target, filename, mimeType, path string) error {
 	// Create the file, but give it a tmp file extension, this means we won't overwrite a
 	// file until it's downloaded, but we'll remove the tmp extension once downloaded.
 	// fileName := strings.Trim(target, " ") + "/" + GetSugDec(FileSug, id)
-	glog.V(8).Info("this is download x1.1 ", fileName)
-	spinner.Message("Creating tmp file")
+	glog.V(8).Info("this is download x1.1 ", fileName, path)
+	// spinner.Message("Creating tmp file")
 
 	_, err = os.Stat(path)
 	if os.IsNotExist(err) {
@@ -908,11 +908,12 @@ func downld(id, target, filename, mimeType, path string) error {
 	if err = os.Rename(fileName+".tmp", fileName); err != nil {
 		// println("this is download x3-2", err.Error())
 		// return err
-		glog.Fatalf("Unable to save files: %v", err)
+		// glog.Fatalf("Unable to save files: %v", err)
+		glog.Errorf("Unable to save files: %v", err)
 	}
 	if err := spinner.Stop(); err != nil {
 
-		glog.Fatalf("Spinner err: %v", err)
+		glog.Errorf("Spinner err: %v", err)
 	}
 
 	return nil
@@ -979,39 +980,33 @@ func Downloadd(cmds []string) error {
 }
 
 func generatorDownloader(id, path string, strd string, strf string, out, stop chan string) {
-
-	//-----yacspin-----------------
-	cfg := yacspin.Config{
-		Frequency:         100 * time.Millisecond,
-		CharSet:           yacspin.CharSets[3],
-		// Suffix:            "  Starting... ", //+target,
-		SuffixAutoColon:   true,
-		ColorAll:          true,
-		// Message:           "Downloading data",
-		StopCharacter:     "*",
-		// StopFailMessage:   "Downloading Failed",
-		StopFailCharacter: "✗",
-		StopFailColors:    []string{"fgRed"},
-		StopColors:        []string{"fgGreen"},
-	}
-
-	spinner, err := yacspin.New(cfg)
-	// handle the error
-	if err != nil {
-		glog.V(8).Info("Spin run error", err.Error())
-		// glog.Fatalf("Spin run error %v", err)
-		// return err
-	}
-
-	if err := spinner.Start(); err != nil {
-		glog.V(8).Info("Spin start error", err.Error())
-		// glog.Fatalf("Spin start error %v", err)
-		// return err
-	}
-	//-----yacspin-----------------
 	// out := make(chan int, 50)
 	go func() {
-		pthSep := string(os.PathSeparator)
+		//-----yacspin-----------------
+		spinner, err := yacspin.New(*cfg)
+		if err != nil {
+			glog.Error("Spin run error", err.Error())
+		}
+		if err := spinner.Frequency(100 * time.Millisecond); err != nil{
+			glog.Error("Spin run error", err.Error())
+		}
+		msg := fmt.Sprintf("   Getting %s information from server", id)
+		spinner.Suffix(msg)
+		spinner.StopCharacter("->")
+		msgs := fmt.Sprintf("... %s ", Brown("done"))
+		spinner.StopMessage(msgs)
+		err = spinner.CharSet(yacspin.CharSets[9])
+		// handle the error
+		if err != nil {
+			glog.V(8).Info("Spin run error", err.Error())
+		}
+
+		if err := spinner.Start(); err != nil {
+			glog.V(8).Info("Spin start error", err.Error())
+			// glog.Fatalf("Spin start error %v", err)
+			// return err
+		}
+		//-----yacspin-----------------
 		// qString := "'" + id + "' in parents"
 		qString := "'" + id + "' in parents and trashed=false"
 		// glog.V(8).Info("B1: ", qString)
@@ -1035,21 +1030,26 @@ func generatorDownloader(id, path string, strd string, strf string, out, stop ch
 				if err := spinner.StopFail(); err != nil {
 					glog.Error("B3 shortcut: ", err)
 				}
-				stop<-"stop"
+				stop <- "stop"
 			case "application/vnd.google-apps.folder":
 				spinner.StopFailMessage("   Empty folder cannot be downloaded")
 				if err := spinner.StopFail(); err != nil {
-					glog.Error("B3 empty folder: ", err)
+					glog.V(8).Info("Try to downloading empty folder", err)
 				}
-				stop<-"stop"
+				stop <- "stop"
 			default:
-				glog.V(8).Info("B3 default: ", path+"/"+fil.Name, fil.MimeType, fil.ShortcutDetails)
 				//send id to out chan
-				// make a global spinner 
+				glog.V(8).Info("B3 default: ", path+pthSep+fil.Name, fil.MimeType, fil.ShortcutDetails)
+				pat := path + "-/-" +
+					fil.Id + "-/-" +
+					fil.MimeType + "-/-" +
+					strings.Split(path, fil.Name)[0]
+				out <- pat
+				glog.V(8).Info("B3.1 default: ", pat)
+				// make a global spinner
 			}
 
 		}
-		// glog.V(8).Info("B3: ")
 		//speed limit of google drive api 1000 requests per 100 seconds
 		rl := ratelimit.New(5) // per second 5 requests
 		prev := time.Now()
@@ -1074,11 +1074,10 @@ func generatorDownloader(id, path string, strd string, strf string, out, stop ch
 			now.Sub(prev)
 			prev = now
 		}
+		if err := spinner.Stop(); err != nil {
+			glog.Errorf("Spinner err: %v", err)
+		}
 	}()
-	// return out
-	// if err := spinner.Stop(); err != nil {
-	// 	glog.Error("spinner error: ", err)
-	// }
 }
 
 func downloader(id int, c chan string) {
@@ -1116,52 +1115,17 @@ func createDownloader(id int) chan<- string {
 }
 
 func StartingDownload(id, path string) {
-
 	glog.V(6).Info("download files: ", id, " : ", path)
-	//-----yacspin-----------------
-	cfg := yacspin.Config{
-		Frequency:         10 * time.Millisecond,
-		CharSet:           yacspin.CharSets[9],
-		Suffix:            "  Starting... ", //+target,
-		SuffixAutoColon:   true,
-		ColorAll:          true,
-		Message:           "Downloading data",
-		StopCharacter:     "✓",
-		StopFailMessage:   "Downloading Failed",
-		StopFailCharacter: "✗",
-		StopFailColors:    []string{"fgRed"},
-		StopColors:        []string{"fgGreen"},
-	}
-
-	spinner, err := yacspin.New(cfg)
-	// handle the error
-	if err != nil {
-		glog.V(8).Info("Spin run error", err.Error())
-		// glog.Fatalf("Spin run error %v", err)
-		// return err
-	}
-
-	if err := spinner.Start(); err != nil {
-		glog.V(8).Info("Spin start error", err.Error())
-		// glog.Fatalf("Spin start error %v", err)
-		// return err
-	}
-	//-----yacspin-----------------
 	out := make(chan string)
 	stop := make(chan string)
 	var fd string
 	var fls string
-	spinner.Message("Preparing data")
 	generatorDownloader(id, path, fd, fls, out, stop)
 	var downloader = createDownloader(0)
 	var i, j int
 	var values []string
 	// tm := time.After(69 * time.Second)
 	tick := time.NewTicker(5 * time.Second)
-
-	if err := spinner.Stop(); err != nil {
-		glog.Fatalf("Spinner err: %v", err)
-	}
 
 	for {
 		var activeDownloader chan<- string
