@@ -1018,7 +1018,7 @@ func generatorDownloader(id, path string, strd string, strf string, out, stop ch
 			glog.Errorln("file or dir not exist: ", err.Error())
 			return
 		}
-		glog.V(8).Info("B2: ", item.Files, len(item.Files))
+		// glog.V(8).Info("B2: ", item.Files, len(item.Files))
 		if len(item.Files) == 0 {
 			fil, err := utils.StartSrv(drive.DriveScope).Files.Get(id).Do()
 			if err != nil {
@@ -1062,15 +1062,18 @@ func generatorDownloader(id, path string, strd string, strf string, out, stop ch
 			if file.MimeType == "application/vnd.google-apps.folder" {
 				patt = pthSep + file.Name
 				strd = strd + pthSep + file.Name
-				// glog.V(8).Info("B5: ", path + strd)
-				glog.V(8).Info("B5: ", patt)
-				out <- path + strd
-				go generatorDownloader(file.Id, path, "", "", out, stop)
+				glog.V(8).Info("B5: ", path + patt)
+				// glog.V(8).Info("B5: ", patt)
+				// out <- path + strd
+				out <- path + patt
+				go generatorDownloader(file.Id, path + patt, strd, strf, out, stop)
 			} else {
-				pat = strd + pthSep + file.Name + "-/-" + file.Id + "-/-" + file.MimeType + "-/-" + path
+				// pat = strd + pthSep + file.Name + "-/-" + file.Id + "-/-" + file.MimeType + "-/-" + path
+				pat = path + patt + pthSep + file.Name + "-/-" + file.Id + "-/-" + file.MimeType + "-/-" + path + patt
 				pat = strings.ReplaceAll(pat, patt, "")
-				glog.V(8).Info("B6: ", path+pat)
-				out <- path + pat
+				glog.V(8).Info("B6: ", pat)
+				// out <- path + pat
+				out <- pat
 			}
 			now.Sub(prev)
 			prev = now
