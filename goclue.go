@@ -490,7 +490,7 @@ func runCommand(commandStr string) {
 
 // 	b, err := ioutil.ReadFile("credentials.json")
 // 	if err != nil {
-// 		glog.Fatalf("Unable to read client secret file: %v", err)
+// 		glog.Errorln("Unable to read client secret file: %v", err)
 // 	}
 
 // 	// If modifying these scopes, delete your previously saved token.json.
@@ -498,7 +498,7 @@ func runCommand(commandStr string) {
 // 	// config, err := google.ConfigFromJSON(b, "https://www.googleapis.com/auth/drive")
 // 	config, err := google.ConfigFromJSON(b, scope)
 // 	if err != nil {
-// 		glog.Fatalf("Unable to parse client secret file to config: %v", err)
+// 		glog.Errorln("Unable to parse client secret file to config: %v", err)
 // 	}
 // 	client := getClient(config)
 // 	// client.Get(url string)
@@ -506,7 +506,7 @@ func runCommand(commandStr string) {
 // 	ctx := context.Background()
 // 	srv, err := drive.NewService(ctx, option.WithHTTPClient(client))
 // 	if err != nil {
-// 		glog.Fatalf("Unable to retrieve Drive client: %v", err)
+// 		glog.Errorln("Unable to retrieve Drive client: %v", err)
 // 	}
 // 	return srv
 // }

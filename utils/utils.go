@@ -90,7 +90,7 @@ func StartSrv(scope string) *drive.Service {
 
 	b, err := ioutil.ReadFile("credentials.json")
 	if err != nil {
-		glog.Fatalf("Unable to read client secret file: %v", err)
+		glog.Errorf("Unable to read client secret file: %v", err)
 	}
 
 	// If modifying these scopes, delete your previously saved token.json.
@@ -98,7 +98,7 @@ func StartSrv(scope string) *drive.Service {
 	// config, err := google.ConfigFromJSON(b, "https://www.googleapis.com/auth/drive")
 	config, err := google.ConfigFromJSON(b, scope)
 	if err != nil {
-		glog.Fatalf("Unable to parse client secret file to config: %v", err)
+		glog.Errorf("Unable to parse client secret file to config: %v", err)
 	}
 	client := getClient(config)
 	// client.Get(url string)
@@ -106,7 +106,7 @@ func StartSrv(scope string) *drive.Service {
 	ctx := context.Background()
 	srv, err := drive.NewService(ctx, option.WithHTTPClient(client))
 	if err != nil {
-		glog.Fatalf("Unable to retrieve Drive client: %v", err)
+		glog.Errorf("Unable to retrieve Drive client: %v", err)
 	}
 	return srv
 }
@@ -133,12 +133,12 @@ func getTokenFromWeb(config *oauth2.Config) *oauth2.Token {
 
 	var authCode string
 	if _, err := fmt.Scan(&authCode); err != nil {
-		glog.Fatalf("Unable to read authorization code %v", err)
+		glog.Errorf("Unable to read authorization code %v", err)
 	}
 
 	tok, err := config.Exchange(context.TODO(), authCode)
 	if err != nil {
-		glog.Fatalf("Unable to retrieve token from web %v", err)
+		glog.Errorf("Unable to retrieve token from web %v", err)
 	}
 	return tok
 }
@@ -160,11 +160,11 @@ func saveToken(path string, token *oauth2.Token) {
 	fmt.Printf("Saving credential file to: %s\n", path)
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
-		glog.Fatalf("Unable to cache oauth token: %v", err)
+		glog.Errorf("Unable to cache oauth token: %v", err)
 	}
 	defer f.Close()
 	err = json.NewEncoder(f).Encode(token)
 	if err != nil {
-		glog.Fatalf("Json encode error: %v", err)
+		glog.Errorf("Json encode error: %v", err)
 	}
 }

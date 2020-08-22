@@ -240,7 +240,7 @@ func (ps *PromptStyle) GetRoot(ii *ItemInfo) {
 		Do()
 	if err != nil {
 		// glog.("shit happened: ", err.Error())
-		glog.Fatalf("Unable to retrieve root: %v", err)
+		glog.Errorf("Unable to retrieve root: %v", err)
 		// return nil
 	}
 	if item.MimeType == "application/vnd.google-apps.folder" {
@@ -295,7 +295,7 @@ func (ii *ItemInfo) ShowResult(
 
 	if err := spinner.Start(); err != nil {
 		glog.V(8).Info("Spin start error", err.Error())
-		// glog.Fatalf("Spin start error %v", err)
+		// glog.Errorf("Spin start error %v", err)
 		// return err
 	}
 	//-----yacspin-----------------
@@ -343,7 +343,7 @@ func (ii *ItemInfo) ShowResult(
 		fmt.Printf(string(colorRed), "Unable to retrieve files: %v", err.Error())
 		return nil
 		// uncomment below will cause 500 error and program exit why?
-		// glog.Fatalf("Unable to retrieve files: %v", err)
+		// glog.Errorf("Unable to retrieve files: %v", err)
 	}
 	fmt.Println("Files:")
 	if len(r.Files) == 0 {
@@ -412,7 +412,7 @@ func (ii *ItemInfo) ShowResult(
 		t.Print()
 	}
 	if err := spinner.Stop(); err != nil {
-		glog.Fatalf("Spinner err: %v", err)
+		glog.Errorf("Spinner err: %v", err)
 	}
 	return r
 }
@@ -622,7 +622,7 @@ func (ii *ItemInfo) CreateDir(name string) (*drive.File, error) {
 // 		Do()
 // 	if err != nil {
 // 		println("shit happened: ", err.Error())
-// 		glog.Fatalf("Unable to retrieve root: %v", err)
+// 		glog.Errorf("Unable to retrieve root: %v", err)
 // 		// return nil
 // 	}
 // 	if item.MimeType == "application/vnd.google-apps.folder" {
@@ -645,7 +645,7 @@ func (ii *ItemInfo) GetNoded(id string) {
 		Do()
 	if err != nil {
 		println("shit happened: ", err.Error())
-		glog.Fatalf("Unable to retrieve root: %v", err)
+		glog.Errorf("Unable to retrieve root: %v", err)
 		// return nil
 	}
 	if item.MimeType == "application/vnd.google-apps.folder" || item.MimeType == "application/vnd.google-apps.shortcut" {
@@ -684,7 +684,7 @@ func (ii *ItemInfo) GetNode(cmd string) {
 		Do()
 	if err != nil {
 		println("shit happened: ", err.Error())
-		glog.Fatalf("Unable to retrieve root: %v", err)
+		glog.Errorf("Unable to retrieve root: %v", err)
 		// return nil
 	}
 	if item.MimeType == "application/vnd.google-apps.folder" || item.MimeType == "application/vnd.google-apps.shortcut" {
@@ -836,7 +836,7 @@ func downld(id, target, filename, mimeType, path string) error {
 
 	if err := spinner.Start(); err != nil {
 		glog.V(8).Info("Spin start error", err.Error())
-		// glog.Fatalf("Spin start error %v", err)
+		// glog.Errorf("Spin start error %v", err)
 		// return err
 	}
 	//-----yacspin-----------------
@@ -857,7 +857,7 @@ func downld(id, target, filename, mimeType, path string) error {
 	}
 	if err != nil {
 		glog.V(8).Info("this is download x0", err.Error())
-		// glog.Fatalf("Unable to retrieve files: %v", err)
+		// glog.Errorf("Unable to retrieve files: %v", err)
 		if err := spinner.StopFail(); err != nil {
 			return err
 		}
@@ -908,7 +908,7 @@ func downld(id, target, filename, mimeType, path string) error {
 	if err = os.Rename(fileName+".tmp", fileName); err != nil {
 		// println("this is download x3-2", err.Error())
 		// return err
-		// glog.Fatalf("Unable to save files: %v", err)
+		// glog.Errorf("Unable to save files: %v", err)
 		glog.Errorf("Unable to save files: %v", err)
 	}
 	if err := spinner.Stop(); err != nil {
@@ -966,8 +966,8 @@ func Downloadd(cmds []string) error {
 		Do()
 	if err != nil {
 		// glog.("shit happened: ", err.Error())
-		glog.Fatalf("Unable to retrieve root: %v", err)
-		// return nil
+		// glog.Errorf("Unable to retrieve root: %v", err)
+		return err
 	}
 	if item.MimeType == "application/vnd.google-apps.folder" {
 		glog.V(6).Info("B7: ", cmds[2])
@@ -1003,7 +1003,7 @@ func generatorDownloader(id, path string, strd string, strf string, out, stop ch
 
 		if err := spinner.Start(); err != nil {
 			glog.V(8).Info("Spin start error", err.Error())
-			// glog.Fatalf("Spin start error %v", err)
+			// glog.Errorf("Spin start error %v", err)
 			// return err
 		}
 		//-----yacspin-----------------
@@ -1061,14 +1061,15 @@ func generatorDownloader(id, path string, strd string, strf string, out, stop ch
 			now := rl.Take()
 			if file.MimeType == "application/vnd.google-apps.folder" {
 				patt = pthSep + file.Name
-				// glog.V(8).Info("B5: ", patt)
 				strd = strd + pthSep + file.Name
+				// glog.V(8).Info("B5: ", path + strd)
+				glog.V(8).Info("B5: ", patt)
 				out <- path + strd
-				go generatorDownloader(file.Id, path, strd, strf, out, stop)
+				go generatorDownloader(file.Id, path, "", "", out, stop)
 			} else {
-				// glog.V(8).Info("B6: ", patt, strd, strf)
 				pat = strd + pthSep + file.Name + "-/-" + file.Id + "-/-" + file.MimeType + "-/-" + path
 				pat = strings.ReplaceAll(pat, patt, "")
+				glog.V(8).Info("B6: ", path+pat)
 				out <- path + pat
 			}
 			now.Sub(prev)
