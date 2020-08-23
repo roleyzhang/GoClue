@@ -180,7 +180,7 @@ func completer(in prompt.Document) []prompt.Suggest {
 			}
 		}
 	}
-	if len(in.TextBeforeCursor()) >= 2 {
+	if len(in.TextBeforeCursor()) >= 2 && len(arrCommandStr) > 0{
 		switch arrCommandStr[0] {
 		case "ls":
 			s = []prompt.Suggest{
@@ -351,8 +351,12 @@ func runCommand(commandStr string) {
 		case "lo":
 			// service = startSrv()
 			// println("this is login")
+			files := make([]*drive.File, 0)
 
-			// cmd.Lo()
+			// dirfiles := cmd.GetAllDriveItems()
+			cmd.GetAllDriveItems("1IgdB9psWejYSLBxPiuqJ5bBigFFaQEZz", "", &files)
+
+			glog.V(8).Info("files len:  ", len(files))
 			// cmd.BufferedChannel()
 			// cmd.Select()
 

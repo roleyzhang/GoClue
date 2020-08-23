@@ -44,6 +44,7 @@ var IddirSug *[]prompt.Suggest
 var IdAllSug *[]prompt.Suggest
 var cfg *yacspin.Config
 var pthSep string
+
 // var colorGreen string
 // var colorCyan string
 var colorYellow string
@@ -54,6 +55,8 @@ var commands map[string]string
 var Ps PromptStyle
 
 var Ii ItemInfo
+
+var perPageSize int64
 
 type ItemInfo struct {
 	// item       *drive.File
@@ -105,9 +108,8 @@ func init() {
 		Status:   "",
 	}
 
-
 	cfg = &yacspin.Config{
-		Frequency:         300 * time.Millisecond,
+		Frequency: 300 * time.Millisecond,
 		// CharSet:           yacspin.CharSets[31],
 		Suffix:            "", //+target,
 		SuffixAutoColon:   true,
@@ -120,6 +122,7 @@ func init() {
 		StopColors:        []string{"fgGreen"},
 	}
 	pthSep = string(os.PathSeparator)
+	perPageSize = 40
 }
 
 // getSugId ...
@@ -821,7 +824,7 @@ func downld(id, target, filename, mimeType, path string) error {
 	if err != nil {
 		glog.Error("Spin run error", err.Error())
 	}
-	if err := spinner.Frequency(300 * time.Millisecond); err != nil{
+	if err := spinner.Frequency(300 * time.Millisecond); err != nil {
 		glog.Error("Spin run error", err.Error())
 	}
 	msg := fmt.Sprintf("Downloading %s", target)
@@ -843,7 +846,13 @@ func downld(id, target, filename, mimeType, path string) error {
 	var resp *http.Response
 	var fileName string
 	// Download binary file
-	if mimeType != "application/vnd.google-apps.document" {
+	if mimeType != "application/vnd.google-apps.document" &&
+		mimeType != "application/vnd.google-apps.spreadsheet" &&
+		mimeType != "application/vnd.google-apps.form" &&
+		mimeType != "application/vnd.google-apps.drawing" &&
+		mimeType != "application/vnd.google-apps.presentation" &&
+		mimeType != "application/vnd.google-apps.script" {
+
 		fgc := utils.StartSrv(drive.DriveScope).Files.Get(id)
 		fgc.Header().Add("alt", "media")
 		resp, err = fgc.Download()
@@ -979,7 +988,28 @@ func Downloadd(cmds []string) error {
 	return nil
 }
 
-func generatorDownloader(id, path string, strd string, strf string, out, stop chan string) {
+func GetAllDriveItems(id, pageToken string, files *[]*drive.File) {
+
+	qString := "'" + id + "' in parents and trashed=false"
+	r, err := utils.StartSrv(drive.DriveScope).Files.List().
+		Q(qString).
+		PageSize(perPageSize).
+		Fields("nextPageToken, files(id, name, mimeType)").
+		PageToken(pageToken).
+		Do()
+	if err != nil {
+		glog.Errorln("file or dir not exist: ", err.Error())
+	}
+	*files = append(*files, r.Files...)
+	glog.V(8).Info("files1 len:  ", len(*files))
+	if int64(len(r.Files)) == perPageSize {
+		pageToken := r.NextPageToken
+		GetAllDriveItems(id, pageToken, files)
+	}
+	// return files
+}
+
+func generatorDownloader(id, path string, out, stop chan string) {
 	// out := make(chan int, 50)
 	go func() {
 		//-----yacspin-----------------
@@ -987,7 +1017,7 @@ func generatorDownloader(id, path string, strd string, strf string, out, stop ch
 		if err != nil {
 			glog.Error("Spin run error", err.Error())
 		}
-		if err := spinner.Frequency(100 * time.Millisecond); err != nil{
+		if err := spinner.Frequency(100 * time.Millisecond); err != nil {
 			glog.Error("Spin run error", err.Error())
 		}
 		msg := fmt.Sprintf("   Getting %s information from server", id)
@@ -1008,18 +1038,20 @@ func generatorDownloader(id, path string, strd string, strf string, out, stop ch
 		}
 		//-----yacspin-----------------
 		// qString := "'" + id + "' in parents"
-		qString := "'" + id + "' in parents and trashed=false"
-		// glog.V(8).Info("B1: ", qString)
-		item, err := utils.StartSrv(drive.DriveScope).Files.List().
-			Q(qString).PageSize(40).
-			Fields("nextPageToken, files(id, name, mimeType)").
-			Do()
-		if err != nil {
-			glog.Errorln("file or dir not exist: ", err.Error())
-			return
-		}
+		// qString := "'" + id + "' in parents and trashed=false"
+		// // glog.V(8).Info("B1: ", qString)
+		// item, err := utils.StartSrv(drive.DriveScope).Files.List().
+		// 	Q(qString).PageSize(perPageSize).
+		// 	Fields("nextPageToken, files(id, name, mimeType)").
+		// 	Do()
+		// if err != nil {
+		// 	glog.Errorln("file or dir not exist: ", err.Error())
+		// 	return
+		// }
+		files := make([]*drive.File, 0)
+		GetAllDriveItems(id, "", &files)
 		// glog.V(8).Info("B2: ", item.Files, len(item.Files))
-		if len(item.Files) == 0 {
+		if len(files) == 0 {
 			fil, err := utils.StartSrv(drive.DriveScope).Files.Get(id).Do()
 			if err != nil {
 				glog.Error("file or dir not exist: ", err.Error())
@@ -1056,22 +1088,23 @@ func generatorDownloader(id, path string, strd string, strf string, out, stop ch
 		// strf = path
 		var pat string
 		var patt string
-		for _, file := range item.Files {
+		for _, file := range files {
 			// glog.V(8).Info("B4: ")
 			now := rl.Take()
 			if file.MimeType == "application/vnd.google-apps.folder" {
 				patt = pthSep + file.Name
-				strd = strd + pthSep + file.Name
-				glog.V(8).Info("B5: ", path + patt)
-				// glog.V(8).Info("B5: ", patt)
-				// out <- path + strd
+				// strd = strd + pthSep + file.Name
+				// glog.V(8).Info("B5: ", path + patt)
 				out <- path + patt
-				go generatorDownloader(file.Id, path + patt, strd, strf, out, stop)
+				go generatorDownloader(file.Id, path+patt, out, stop)
 			} else {
 				// pat = strd + pthSep + file.Name + "-/-" + file.Id + "-/-" + file.MimeType + "-/-" + path
-				pat = path + patt + pthSep + file.Name + "-/-" + file.Id + "-/-" + file.MimeType + "-/-" + path + patt
-				pat = strings.ReplaceAll(pat, patt, "")
+				pat = path + patt + pthSep + file.Name + "-/-" +
+					file.Id + "-/-" + file.MimeType + "-/-" + path + patt
 				glog.V(8).Info("B6: ", pat)
+				glog.V(8).Info("B6-1: ", patt)
+				pat = strings.Replace(pat, patt, "", 1)
+				glog.V(8).Info("B6-2: ", pat)
 				// out <- path + pat
 				out <- pat
 			}
@@ -1122,9 +1155,9 @@ func StartingDownload(id, path string) {
 	glog.V(6).Info("download files: ", id, " : ", path)
 	out := make(chan string)
 	stop := make(chan string)
-	var fd string
-	var fls string
-	generatorDownloader(id, path, fd, fls, out, stop)
+	// var fd string
+	// var fls string
+	generatorDownloader(id, path, out, stop)
 	var downloader = createDownloader(0)
 	var i, j int
 	var values []string
@@ -1165,6 +1198,14 @@ func StartingDownload(id, path string) {
 }
 
 //------------------------------TESTING BELOW
+
+// func GetAllDriveItems() func(id, pageToken string) []*drive.File {
+// 	files := make([]*drive.File, 0)
+// 	return func(id, pageToken string) []*drive.File {
+// 		files = Lo(id,pageToken, files)
+// 		return files
+// 	}
+// }
 
 // func Lo() {
 // 	//-----------------------------
