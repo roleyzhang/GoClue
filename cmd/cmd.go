@@ -421,18 +421,15 @@ func (ii *ItemInfo) ShowResult(
 }
 
 //  generate folder path...
-func PathGenerate(path string) {
+func PathGenerate(path, level string) {
+
 	pathInfo := getSugInfo()
+	// home, _ :=os.UserHomeDir()
 	if path == "HOME" {
-		cmd := exec.Command("tree", "-f", "-L", "3", "-i", "-d", os.Getenv(path))
-		output, _ := cmd.Output()
-		for _, m := range strings.Split(string(output), "\n") {
-			// fmt.Printf("metric: %s\n", m)
-			s := prompt.Suggest{Text: m, Description: ""}
-			PathSug = pathInfo(s)
-		}
-	} else {
-		cmd := exec.Command("tree", "-f", "-L", "3", "-i", path)
+		// only list folders
+		// cmd := exec.Command("tree", "-f", "-i", "-d", os.Getenv(path))
+
+		cmd := exec.Command("tree", "-f", "-L", level, "-i", "-d", os.Getenv(path))
 		output, _ := cmd.Output()
 		for _, m := range strings.Split(string(output), "\n") {
 			// fmt.Printf("metric: %s\n", m)
@@ -440,7 +437,35 @@ func PathGenerate(path string) {
 			PathSug = pathInfo(s)
 		}
 
+		// files := make([]string, 0)
+		// GetLocalItems(os.Getenv(path), true, &files)
+		// for _, file := range files {
+		// 	// fmt.Println(string)
+		// 	s := prompt.Suggest{Text: strings.Replace(file,home+pthSep,"",1), Description: ""}
+		// 	// s := prompt.Suggest{Text: file, Description: ""}
+		// 	PathSug = pathInfo(s)
+		// }
+	} else {
+		// list files & folder
+		// cmd := exec.Command("tree", "-f", "-i", path)
+
+		cmd := exec.Command("tree", "-f", "-L", level, "-i", path)
+		output, _ := cmd.Output()
+		for _, m := range strings.Split(string(output), "\n") {
+			// fmt.Printf("metric: %s\n", m)
+			s := prompt.Suggest{Text: m, Description: ""}
+			PathSug = pathInfo(s)
+		}
+
+		// files := make([]string, 0)
+		// GetLocalItems(os.Getenv(path), false, &files)
+		// for _, file := range files {
+		// 	// fmt.Println(file)
+		// 	s := prompt.Suggest{Text: strings.Replace(file,home+pthSep,"",1), Description: ""}
+		// 	PathSug = pathInfo(s)
+		// }
 	}
+
 }
 
 // SetPrefix ...
@@ -1198,14 +1223,48 @@ func StartingDownload(id, path string) {
 }
 
 //------------------------------TESTING BELOW
+func visit(files *[]string, isDir bool) filepath.WalkFunc {
+	return func(path string, info os.FileInfo, err error) error {
+		glog.V(8).Info(info)
+		if info != nil {
+			// checking permission
+			if m := info.Mode(); m&(1<<2) == 0 {
+				// glog.V(8).Info(m)
+				return nil
+			}
+			if err != nil {
+				// glog.V(8).Info(info.Mode().Perm().String)
+				glog.Error(err)
+			}
+			if strings.HasPrefix(info.Name(), ".") {
+				// glog.V(8).Info(path)
+				return nil
+			}
+			// if info.IsDir() && noDir {
+			// 	return nil
+			// }
+			if !info.IsDir() && isDir {
+				return nil
+			}
+			*files = append(*files, path)
 
-// func GetAllDriveItems() func(id, pageToken string) []*drive.File {
-// 	files := make([]*drive.File, 0)
-// 	return func(id, pageToken string) []*drive.File {
-// 		files = Lo(id,pageToken, files)
-// 		return files
-// 	}
-// }
+		}
+		return nil
+	}
+}
+
+// path is local path, noDir is switch list folder
+func GetLocalItems(path string, isDir bool, files *[]string) {
+	// var files []string
+
+	// root := "/some/folder/to/scan"
+	err := filepath.Walk(path, visit(files, isDir))
+	if err != nil {
+		// panic(err)
+		glog.Error(err)
+	}
+	// return files
+}
 
 // func Lo() {
 // 	//-----------------------------

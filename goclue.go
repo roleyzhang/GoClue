@@ -1,34 +1,44 @@
 package main
 
 import (
-    "flag"
-    "github.com/golang/glog"
+	"flag"
+
+	"github.com/golang/glog"
+
 	// "encoding/json"
 	"fmt"
+	"time"
+
 	// "io/ioutil"
 	// "log"
 	// "net/http"
 	"os"
+	// "os/exec"
 	"strconv"
 	"strings"
+
 	"github.com/c-bata/go-prompt"
+
 	// "golang.org/x/net/context"
 	// "golang.org/x/oauth2"
 	// "golang.org/x/oauth2/google"
 	"google.golang.org/api/drive/v3"
 	// "google.golang.org/api/option"
+	. "github.com/logrusorgru/aurora"
 	"github.com/roleyzhang/GoClue/cmd"
+	"github.com/roleyzhang/GoClue/utils"
+	"github.com/theckman/yacspin"
 	// "github.com/roleyzhang/GoClue/utils"
 )
 
 func main() {
-    flag.Parse()
-    defer glog.Flush()
-    // glog.V(8).Info("Level 8 log")
-    // glog.V(5).Info("Level 5 log")
+	flag.Parse()
+	defer glog.Flush()
+	// glog.V(8).Info("Level 8 log")
+	// glog.V(5).Info("Level 5 log")
 
-	fmt.Printf("%s\n%s\n", "GoClue is a cloud disk console client.",
-		"Type \"login\" to sign up or \"h\" to get more help:")
+	// fmt.Printf("%s\n%s\n", "GoClue is a cloud disk console client.",
+	// 	"Type \"login\" to sign up or \"h\" to get more help:")
 	p := prompt.New(
 		executor,
 		completer,
@@ -108,9 +118,7 @@ func completer(in prompt.Document) []prompt.Suggest {
 	arrCommandStr := strings.Fields(in.TextBeforeCursor())
 
 	// fmt.Println("Your input: ",len(arrCommandStr) ,in.TextBeforeCursor())
-	s := []prompt.Suggest{
-
-	}
+	s := []prompt.Suggest{}
 
 	if len(arrCommandStr) >= 0 {
 		s = []prompt.Suggest{
@@ -180,7 +188,7 @@ func completer(in prompt.Document) []prompt.Suggest {
 			}
 		}
 	}
-	if len(in.TextBeforeCursor()) >= 2 && len(arrCommandStr) > 0{
+	if len(in.TextBeforeCursor()) >= 2 && len(arrCommandStr) > 0 {
 		switch arrCommandStr[0] {
 		case "ls":
 			s = []prompt.Suggest{
@@ -206,19 +214,29 @@ func completer(in prompt.Document) []prompt.Suggest {
 		// }
 		switch arrCommandStr[0] {
 		case "d":
+			if !utils.IsContain(*pathSug, in.GetWordBeforeCursorWithSpace()){
+				// fmt.Println("cause u : ", in.GetWordBeforeCursorWithSpace())
+				cmd.PathGenerate(in.GetWordBeforeCursorWithSpace(), "4")
+			}
 			if pathSug != nil {
 				s = *pathSug
 			}
 		case "dd":
+			if !utils.IsContain(*pathSug, in.GetWordBeforeCursorWithSpace()){
+				// fmt.Println("cause u : ", in.GetWordBeforeCursorWithSpace())
+				cmd.PathGenerate(in.GetWordBeforeCursorWithSpace(), "4")
+			}
 			if pathSug != nil {
 				s = *pathSug
 			}
 		case "u":
-			cmd.PathGenerate(in.GetWordBeforeCursorWithSpace())
+			if !utils.IsContain(*pathSug, in.GetWordBeforeCursorWithSpace()){
+				// fmt.Println("cause u : ", in.GetWordBeforeCursorWithSpace())
+				cmd.PathGenerate(in.GetWordBeforeCursorWithSpace(), "4")
+			}
 			if pathSug != nil {
 				s = *pathSug
 			}
-			// fmt.Println("cause u : ", in.GetWordBeforeCursorWithSpace())
 		}
 		switch arrCommandStr[1] {
 		case "-t", "--t":
@@ -262,7 +280,7 @@ func completer(in prompt.Document) []prompt.Suggest {
 			if dirSug != nil {
 				s = *dirSug
 			}
-			if strings.Contains(arrCommandStr[0], "d"){
+			if strings.Contains(arrCommandStr[0], "d") {
 				s = *iddirSug
 
 			}
@@ -300,10 +318,56 @@ var idfileSug *[]prompt.Suggest
 var iddirSug *[]prompt.Suggest
 var idallSug *[]prompt.Suggest
 var colorRed string
+var cfg *yacspin.Config
 
 var ii cmd.ItemInfo
 
 func init() {
+	//-----yacspin-----------------
+	cfg = &yacspin.Config{
+		Frequency: 300 * time.Millisecond,
+		// CharSet:           yacspin.CharSets[31],
+		Suffix:            "", //+target,
+		SuffixAutoColon:   true,
+		ColorAll:          true,
+		Message:           "",
+		StopCharacter:     "✓",
+		StopFailMessage:   "",
+		StopFailCharacter: "✗",
+		StopFailColors:    []string{"fgRed"},
+		StopColors:        []string{"fgGreen"},
+	}
+	spinner, err := yacspin.New(*cfg)
+	if err != nil {
+		glog.Error("Spin run error", err.Error())
+	}
+	if err := spinner.Frequency(100 * time.Millisecond); err != nil {
+		glog.Error("Spin run error", err.Error())
+	}
+	// msg := fmt.Sprintf("   ")
+	spinner.Suffix("")
+	spinner.StopCharacter("")
+	msgs := fmt.Sprintf("... %s ", Brown("Type \"ls\" to list files or \"h\" to get more help:"))
+	spinner.StopMessage(msgs)
+	err = spinner.CharSet(yacspin.CharSets[26])
+	// handle the error
+	if err != nil {
+		glog.V(8).Info("Spin run error", err.Error())
+	}
+
+	if err := spinner.Start(); err != nil {
+		glog.V(8).Info("Spin start error", err.Error())
+		// glog.Errorf("Spin start error %v", err)
+		// return err
+	}
+	//-----yacspin-----------------
+	//------Checking Linux system
+	if !utils.IsCommandAvailable("tree"){
+			// fmt.Println("output===", "yes")
+		glog.Fatalln(Red("Please install tree firstly, then restart this program"))
+	}
+	//------Checking Linux system end
+
 	allCommands = []command{
 		{"q", "", "Quit"},
 		{"login", "", "Login to your account of net drive"},
@@ -333,10 +397,13 @@ func init() {
 	colorRed = "\033[31m%s\n"
 	page = make(map[int]string)
 	// for prompt suggest
-	cmd.PathGenerate("HOME")
+	cmd.PathGenerate("HOME", "5")
 
 	ii = cmd.Ii
 	cmd.Ps.GetRoot(&ii)
+	if err := spinner.Stop(); err != nil {
+		glog.Errorf("Spinner err: %v", err)
+	}
 }
 
 // run the command which input by user
@@ -351,14 +418,18 @@ func runCommand(commandStr string) {
 		case "lo":
 			// service = startSrv()
 			// println("this is login")
-			files := make([]*drive.File, 0)
-
+			// files := make([]*drive.File, 0)
 			// dirfiles := cmd.GetAllDriveItems()
-			cmd.GetAllDriveItems("1IgdB9psWejYSLBxPiuqJ5bBigFFaQEZz", "", &files)
-
-			glog.V(8).Info("files len:  ", len(files))
+			// cmd.GetAllDriveItems("1IgdB9psWejYSLBxPiuqJ5bBigFFaQEZz", "", &files)
+			// glog.V(8).Info("files len:  ", len(files))
 			// cmd.BufferedChannel()
 			// cmd.Select()
+			files := make([]string, 0)
+			cmd.GetLocalItems(arrCommandStr[1], true, &files)
+			for _, file := range files {
+				home, _ := os.UserHomeDir()
+				fmt.Println(strings.Replace(file, home+string(os.PathSeparator), "", 1), " ---- ", home, "pathSug len", len(*pathSug), "===== ", len(files))
+			}
 
 		case "mkdir":
 			println("this is mkdir")
@@ -518,7 +589,7 @@ func runCommand(commandStr string) {
 // list files of current directory
 func list(cmds []string) {
 
-    glog.V(8).Infof("cmds %s", cmds)
+	glog.V(8).Infof("cmds %s", cmds)
 	// parameter setting
 	// -dir list files of folder
 	// -a show all type of items
@@ -539,16 +610,16 @@ func list(cmds []string) {
 		case "-d", "--d":
 			counter = 0
 			clearMap()
-			userQuery("d","")
+			userQuery("d", "")
 		case "-l", "--l":
 			counter = 0
 			clearMap()
-			userQuery("l","")
+			userQuery("l", "")
 		case "-s", "--s":
 			// qString = "starred"
 			counter = 0
 			clearMap()
-			userQuery("s","")
+			userQuery("s", "")
 		case "-t", "--t":
 			if len(cmds) == 3 {
 				counter = 0
@@ -560,7 +631,7 @@ func list(cmds []string) {
 				// glog.V(8).Infof("qString len %d qString%s\n",len(cmds), qString)
 				counter = 0
 				clearMap()
-				userQuery("n",cmds[2])
+				userQuery("n", cmds[2])
 			}
 		case "-c", "--c":
 			if len(cmds) == 3 {
@@ -571,15 +642,15 @@ func list(cmds []string) {
 		case "-tr", "--trash":
 			counter = 0
 			clearMap()
-			userQuery("tr","")
+			userQuery("tr", "")
 		case "-a", "--all":
 			counter = 0
 			clearMap()
-			userQuery("default","")
+			userQuery("default", "")
 		default:
 			counter = 0
 			clearMap()
-			userQuery("default","")
+			userQuery("default", "")
 		}
 	} else {
 		// qString = "'" + ii.ItemId + "' in parents and trashed=false"
@@ -601,7 +672,7 @@ func clearMap() {
 // name ...
 func userQuery(param, cmd string) *drive.FileList {
 	r := ii.ShowResult(page, counter, param, cmd, drive.DriveScope)
-	if r == nil{
+	if r == nil {
 		fmt.Printf(string(colorRed), "No Result return: ")
 		return nil
 	}
@@ -612,9 +683,9 @@ func userQuery(param, cmd string) *drive.FileList {
 // show next page
 func next(counter int) {
 	r := ii.ShowResult(page, counter, "next", "", drive.DriveScope)
-	if r == nil{
+	if r == nil {
 		fmt.Printf(string(colorRed), "No Result return: ")
-	}else{
+	} else {
 		pageToken = r.NextPageToken
 	}
 }
@@ -622,8 +693,7 @@ func next(counter int) {
 // show previous page
 func previous(counter int) {
 	r := ii.ShowResult(page, counter, "previous", "", drive.DriveScope)
-	if r == nil{
+	if r == nil {
 		fmt.Printf(string(colorRed), "No Result return: ")
 	}
 }
-

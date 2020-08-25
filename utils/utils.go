@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
+	"strings"
 
+	"github.com/c-bata/go-prompt"
 	"github.com/golang/glog"
 
 	"io/ioutil"
@@ -17,9 +20,9 @@ import (
 	"google.golang.org/api/option"
 )
 
-var (
-// counter int
-)
+// var (
+// // counter int
+// )
 
 // func init() {
 // }
@@ -34,6 +37,24 @@ var (
 // 	}
 // }
 
+// determine array contain string
+func IsContain(items []prompt.Suggest , item string) bool {
+	for _, eachItem := range items {
+		if strings.Contains(eachItem.Text, item) {
+			return true
+		}
+	}
+	return false
+}
+
+// Checking linux system commands 
+func IsCommandAvailable(name string) bool {
+	cmd := exec.Command("/bin/sh", "-c", "command -v "+name)
+	if err := cmd.Run(); err != nil {
+		return false
+	}
+	return true
+}
 
 // clearMap ...
 func ClearDownloadMap(m map[string]string) {
