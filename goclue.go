@@ -416,6 +416,7 @@ func runCommand(commandStr string) {
 		case "q":
 			os.Exit(0)
 		case "lo":
+			// ii.Lo(drive.DriveScope)
 			// service = startSrv()
 			// println("this is login")
 			// files := make([]*drive.File, 0)
@@ -424,12 +425,12 @@ func runCommand(commandStr string) {
 			// glog.V(8).Info("files len:  ", len(files))
 			// cmd.BufferedChannel()
 			// cmd.Select()
-			files := make([]string, 0)
-			cmd.GetLocalItems(arrCommandStr[1], true, &files)
-			for _, file := range files {
-				home, _ := os.UserHomeDir()
-				fmt.Println(strings.Replace(file, home+string(os.PathSeparator), "", 1), " ---- ", home, "pathSug len", len(*pathSug), "===== ", len(files))
-			}
+			// files := make([]string, 0)
+			// cmd.GetLocalItems(arrCommandStr[1], true, &files)
+			// for _, file := range files {
+			// 	home, _ := os.UserHomeDir()
+			// 	fmt.Println(strings.Replace(file, home+string(os.PathSeparator), "", 1), " ---- ", home, "pathSug len", len(*pathSug), "===== ", len(files))
+			// }
 
 		case "mkdir":
 			println("this is mkdir")
@@ -511,9 +512,7 @@ func runCommand(commandStr string) {
 			list(arrCommandStr)
 			cmd.Ps.SetPrefix("")
 		case "u":
-			if _, err := ii.Upload(commandStr); err != nil {
-				glog.Error("Can not upload file" + err.Error())
-			}
+			ii.UpLod(commandStr, drive.DriveScope)
 			cmd.Ps.SetPrefix("")
 		case "h":
 			for _, cmd := range allCommands {

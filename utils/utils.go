@@ -55,6 +55,31 @@ func IsCommandAvailable(name string) bool {
 	}
 	return true
 }
+// Exists reports whether the named file or directory exists.
+func Exists(name string) bool {
+    if _, err := os.Stat(name); err != nil {
+        if os.IsNotExist(err) {
+            return false
+        }
+    }
+    return true
+}
+
+// checking whether is folder
+func IsDir(path string) bool {
+	// glog.V(8).Info(path)
+    s, err := os.Stat(path)
+    if err != nil {
+		// glog.V(8).Info(err)
+        return false
+    }
+    return s.IsDir()
+}
+
+// checking whether is file
+func IsFile(path string) bool {
+    return !IsDir(path)
+}
 
 // clearMap ...
 func ClearDownloadMap(m map[string]string) {

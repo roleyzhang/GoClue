@@ -593,22 +593,56 @@ func (ii *ItemInfo) Trashd(id, types string) error {
 	return nil
 }
 
-func (ii *ItemInfo) Upload(file string) (*drive.File, error) {
-	fil := strings.Split(file, "u ")
-	// fmt.Println(fil)
-	fi, err := os.Open(fil[1])
+func (ii *ItemInfo) Upload(file, parentId string) (*drive.File, error) {
+	//-----yacspin-----------------
+	spinner, err := yacspin.New(*cfg)
 	if err != nil {
+		glog.Error("Spin run error", err.Error())
+	}
+	if err := spinner.Frequency(100 * time.Millisecond); err != nil {
+		glog.Error("Spin run error", err.Error())
+	}
+	msg := fmt.Sprintf("   Uploading %s to cloud ", file)
+	spinner.Suffix(msg)
+	msgs := fmt.Sprintf("... %s ", Brown("done"))
+	spinner.StopMessage(msgs)
+	err = spinner.CharSet(yacspin.CharSets[71])
+	// handle the error
+	if err != nil {
+		glog.V(8).Info("Spin run error", err.Error())
+	}
+
+	if err := spinner.Start(); err != nil {
+		glog.V(8).Info("Spin start error", err.Error())
+		// glog.Errorf("Spin start error %v", err)
+		// return err
+	}
+	//-----yacspin-----------------
+	if parentId == "" {
+		parentId = ii.ItemId
+	}
+	// fil := strings.Split(file, "u ")
+	fi, err := os.Open(file)
+	if err != nil {
+		spinner.StopFailMessage("   Open local file failed")
+		if err := spinner.StopFail(); err != nil {
+			glog.V(8).Info("Try to open local file failed", err)
+		}
 		return nil, err
 	}
 	defer fi.Close()
 
 	fileInfo, err := fi.Stat()
 	if err != nil {
+		spinner.StopFailMessage("   Get file stat failed")
+		if err := spinner.StopFail(); err != nil {
+			glog.V(8).Info("Try to get file stat failed", err)
+		}
 		return nil, err
 	}
 	u := &drive.File{
 		Name:    filepath.Base(fileInfo.Name()),
-		Parents: []string{ii.ItemId},
+		Parents: []string{parentId},
 	}
 	// ufile, err := startSrv(drive.DriveScope).Files.Create(u).Media(fi).Do()
 	ufile, err := utils.StartSrv(drive.DriveScope).Files.
@@ -617,7 +651,15 @@ func (ii *ItemInfo) Upload(file string) (*drive.File, error) {
 		ProgressUpdater(func(now, size int64) { fmt.Printf("%d, %d\r", now, size) }).
 		Do()
 	if err != nil {
+		spinner.StopFailMessage("   Upload file failed")
+		if err := spinner.StopFail(); err != nil {
+			glog.V(8).Info("Try to upload file failed", err)
+		}
 		return nil, err
+	}
+
+	if err := spinner.Stop(); err != nil {
+		glog.Errorf("Spinner err: %v", err)
 	}
 	return ufile, nil
 }
@@ -638,6 +680,35 @@ func (ii *ItemInfo) CreateDir(name string) (*drive.File, error) {
 
 	fmt.Printf(string(colorYellow), dir.Name, "", " has been created")
 	return dir, nil
+}
+
+// createInDir...
+func CreateInDir() func(name, path, parentId string) (*drive.File, error) {
+	var parent string
+	parents := make(map[string]string)
+	return func(name, path, parentId string) (*drive.File, error) {
+		parDir, parName := filepath.Split(path[0:len(path)-1])
+		glog.V(8).Info("fil: ",name ," parDir,",parDir, " , parName", parName)
+		parent = parents[parName]
+		if parent == "" {
+			parent = parentId
+		}
+		d := &drive.File{
+			Name:     name,
+			MimeType: "application/vnd.google-apps.folder",
+			Parents:  []string{parent},
+		}
+		dir, err := utils.StartSrv(drive.DriveScope).Files.Create(d).Do()
+
+		if err != nil {
+			glog.Errorln("Could not create dir: ", err.Error())
+			return nil, err
+		}
+
+		fmt.Printf(string(colorYellow), dir.Name, "", " has been created")
+		parents[dir.Name] = dir.Id
+		return dir, nil
+	}
 }
 
 // // getRoot ...
@@ -1225,7 +1296,7 @@ func StartingDownload(id, path string) {
 //------------------------------TESTING BELOW
 func visit(files *[]string, isDir bool) filepath.WalkFunc {
 	return func(path string, info os.FileInfo, err error) error {
-		glog.V(8).Info(info)
+		// glog.V(8).Info(info)
 		if info != nil {
 			// checking permission
 			if m := info.Mode(); m&(1<<2) == 0 {
@@ -1257,13 +1328,108 @@ func visit(files *[]string, isDir bool) filepath.WalkFunc {
 func GetLocalItems(path string, isDir bool, files *[]string) {
 	// var files []string
 
+	fil := strings.Split(path, "u ")
 	// root := "/some/folder/to/scan"
-	err := filepath.Walk(path, visit(files, isDir))
+	err := filepath.Walk(fil[1], visit(files, isDir))
 	if err != nil {
 		// panic(err)
 		glog.Error(err)
 	}
 	// return files
+}
+
+func (ii *ItemInfo) UpLod(file, scope string) {
+	//-----yacspin-----------------
+	spinner, err := yacspin.New(*cfg)
+	if err != nil {
+		glog.Error("Spin run error", err.Error())
+	}
+	if err := spinner.Frequency(100 * time.Millisecond); err != nil {
+		glog.Error("Spin run error", err.Error())
+	}
+	// msg := fmt.Sprintf("   Getting %s information from server", id)
+	// spinner.Suffix(msg)
+	msgs := fmt.Sprintf("... %s ", Brown("done"))
+	spinner.StopMessage(msgs)
+	err = spinner.CharSet(yacspin.CharSets[29])
+	// handle the error
+	if err != nil {
+		glog.V(8).Info("Spin run error", err.Error())
+	}
+
+	if err := spinner.Start(); err != nil {
+		glog.V(8).Info("Spin start error", err.Error())
+		// glog.Errorf("Spin start error %v", err)
+		// return err
+	}
+	//-----yacspin-----------------
+	var tmpId string
+	createInDir := CreateInDir()
+
+	files := make([]string, 0)
+	GetLocalItems(file, false, &files)
+	for _, file := range files {
+		// home, _ := os.UserHomeDir()
+		// fmt.Println(strings.Replace(file, home+string(os.PathSeparator), "", 1),  "===== ", len(files))
+		dir, fil := filepath.Split(file)
+		// glog.V(8).Info("dir: ", dir, "   file: ", fil, " ----: ", utils.IsDir(file))
+
+		if utils.IsDir(file) {
+			// glog.V(8).Info(ii.ItemId)
+			qString := "name ='" + fil +
+				"' and mimeType = 'application/vnd.google-apps.folder' and '" +
+				ii.ItemId + "' in parents and trashed = false"
+			// glog.V(5).Infoln("qString: ", qString)
+			r, err := utils.StartSrv(scope).Files.List().
+				Q(qString).
+				PageSize(10).
+				Fields("nextPageToken, files(id, name, mimeType, owners, parents, createdTime)").
+				// OrderBy("modifiedTime").
+				Do()
+			if err != nil {
+				fmt.Printf(string(colorRed), "Unable to retrieve files: %v", err.Error())
+				// uncomment below will cause 500 error and program exit why?
+				glog.Errorf("Unable to retrieve files: %v", err)
+			}
+			if len(r.Files) != 0 {
+				spinner.StopFailMessage("   Cloud already has the folder")
+				if err := spinner.StopFail(); err != nil {
+					glog.V(8).Info("Try to upload folder failed", err)
+				}
+				return
+			} else {
+				dr, err := createInDir(fil, dir, ii.ItemId)
+				if err != nil {
+					glog.Error(err)
+					return
+				}
+				tmpId = dr.Id
+			}
+		} else {
+			// glog.V(8).Info("fil: ",fil," subdir ,",subdir, " , subfile  ", subfil)
+			if spinner.Active(){
+				if err := spinner.Pause(); err != nil{
+					glog.Error(err)
+				}
+			}
+			_, err := ii.Upload(file, tmpId)
+			if err != nil {
+				spinner.StopFailMessage("   File upload failed")
+				if err := spinner.StopFail(); err != nil {
+					glog.V(8).Info("Try to upload file failed", err)
+				}
+				return
+			}
+			if !spinner.Active() {
+				if err := spinner.Unpause(); err != nil{
+					glog.Error(err)
+				}
+			}
+		}
+	}
+	if err := spinner.Stop(); err != nil {
+		glog.Errorf("Spinner err: %v", err)
+	}
 }
 
 // func Lo() {
