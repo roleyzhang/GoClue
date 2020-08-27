@@ -126,7 +126,7 @@ func init() {
 }
 
 // getSugId ...
-func getSugId(sug *[]prompt.Suggest, text string) (string, error) {
+func (ii *ItemInfo) getSugId(sug *[]prompt.Suggest, text string) (string, error) {
 	// fmt.Println(text)
 	if sug != nil {
 		for _, v := range *sug {
@@ -135,7 +135,7 @@ func getSugId(sug *[]prompt.Suggest, text string) (string, error) {
 			}
 		}
 	}
-	qString := "name='" + text + "'" + " and trashed=false"
+	qString := "name='" + text + "'" +" and '"+ii.ItemId+"' in parents "+ " and trashed=false"
 
 	file, err := utils.StartSrv(drive.DriveScope).Files.List().
 		Q(qString).
@@ -322,7 +322,7 @@ func (ii *ItemInfo) ShowResult(
 		}
 	}
 	if param == "dir" {
-		iD, err := getSugId(AllSug, cmd)
+		iD, err := ii.getSugId(AllSug, cmd)
 		if err != nil {
 			fmt.Printf(string(colorRed), "file or dir not exist: "+err.Error())
 			glog.Errorln("file or dir not exist: " + err.Error())
@@ -468,42 +468,160 @@ func PathGenerate(path, level string) {
 
 }
 
+//  generate folder and file path...
+func PathFileGenerate(path, level string) {
+	pathInfo := getSugInfo()
+	// home, _ :=os.UserHomeDir()
+
+	if path == "HOME" {
+		// only list folders
+		// cmd := exec.Command("tree", "-f", "-i", "-d", os.Getenv(path))
+
+		cmd := exec.Command("tree", "-f", "-L", level, "-i", os.Getenv(path))
+		output, _ := cmd.Output()
+		for _, m := range strings.Split(string(output), "\n") {
+			// fmt.Printf("metric: %s\n", m)
+			s := prompt.Suggest{Text: m, Description: ""}
+			AllSug = pathInfo(s)
+		}
+
+		// files := make([]string, 0)
+		// GetLocalItems(os.Getenv(path), true, &files)
+		// for _, file := range files {
+		// 	// fmt.Println(string)
+		// 	s := prompt.Suggest{Text: strings.Replace(file,home+pthSep,"",1), Description: ""}
+		// 	// s := prompt.Suggest{Text: file, Description: ""}
+		// 	PathSug = pathInfo(s)
+		// }
+	} else {
+		// list files & folder
+		// cmd := exec.Command("tree", "-f", "-i", path)
+
+		cmd := exec.Command("tree", "-f", "-L", level, "-i", path)
+		output, _ := cmd.Output()
+		for _, m := range strings.Split(string(output), "\n") {
+			// fmt.Printf("metric: %s\n", m)
+			s := prompt.Suggest{Text: m, Description: ""}
+			AllSug = pathInfo(s)
+		}
+
+		// files := make([]string, 0)
+		// GetLocalItems(os.Getenv(path), false, &files)
+		// for _, file := range files {
+		// 	// fmt.Println(file)
+		// 	s := prompt.Suggest{Text: strings.Replace(file,home+pthSep,"",1), Description: ""}
+		// 	PathSug = pathInfo(s)
+		// }
+	}
+}
+
 // SetPrefix ...
 
 // rmd ... delete file by id
 func (ii *ItemInfo) Rmd(id, types string) error {
 	//TODO: delete file
+	//-----yacspin-----------------
+	spinner, err := yacspin.New(*cfg)
+	if err != nil {
+		glog.Error("Spin run error", err.Error())
+	}
+	if err := spinner.Frequency(100 * time.Millisecond); err != nil {
+		glog.Error("Spin run error", err.Error())
+	}
+	// msg := fmt.Sprintf("   Getting %s information from server", id)
+	// spinner.Suffix(msg)
+	msgs := fmt.Sprintf("   Delete %s... %s ",id, Brown("done"))
+	spinner.StopMessage(msgs)
+	err = spinner.CharSet(yacspin.CharSets[9])
+	// handle the error
+	if err != nil {
+		glog.V(8).Info("Spin run error", err.Error())
+	}
+
+	if err := spinner.Start(); err != nil {
+		glog.V(8).Info("Spin start error", err.Error())
+		// glog.Errorf("Spin start error %v", err)
+		// return err
+	}
+	//-----yacspin-----------------
 	file, err := utils.StartSrv(drive.DriveScope).Files.Get(id).Do()
 	if err != nil {
+		spinner.StopFailMessage("   file or dir not exist")
+		if err := spinner.StopFail(); err != nil {
+			glog.V(8).Info("file or dir not exist", err)
+		}
 		glog.Error("file or dir not exist: ", err.Error())
 		return err
 	}
 
 	if id == ii.RootId {
+		spinner.StopFailMessage("   The root folder should not be deleted")
+		if err := spinner.StopFail(); err != nil {
+			glog.V(8).Info("The root folder should not be deleted", err)
+		}
 		return errors.New("The root folder should not be deleted")
 	}
 
 	if types == "-r" && file.MimeType != "application/vnd.google-apps.folder" {
+		spinner.StopFailMessage("   The delete item: item is not folder")
+		if err := spinner.StopFail(); err != nil {
+			glog.V(8).Info("The delete item: item is not folder", err)
+		}
 		return errors.New("The delete item: item is not folder")
 	}
 
 	err = utils.StartSrv(drive.DriveScope).Files.Delete(id).Do()
 
 	if err != nil {
+		spinner.StopFailMessage("   File or dir delete failed")
+		if err := spinner.StopFail(); err != nil {
+			glog.V(8).Info("File or dir delete failed", err)
+		}
 		glog.Errorln("file or dir delete failed: " + err.Error())
 		return err
+	}
+	if err := spinner.Stop(); err != nil {
+		glog.Errorf("Spinner err: %v", err)
 	}
 	return nil
 }
 
 // rm ... delete file
 func (ii *ItemInfo) Rm(name, types string) error {
+	//-----yacspin-----------------
+	spinner, err := yacspin.New(*cfg)
+	if err != nil {
+		glog.Error("Spin run error", err.Error())
+	}
+	if err := spinner.Frequency(100 * time.Millisecond); err != nil {
+		glog.Error("Spin run error", err.Error())
+	}
+	// msg := fmt.Sprintf("   Getting %s information from server", id)
+	// spinner.Suffix(msg)
+	msgs := fmt.Sprintf("   Delete %s... %s ",name, Brown("done"))
+	spinner.StopMessage(msgs)
+	err = spinner.CharSet(yacspin.CharSets[9])
+	// handle the error
+	if err != nil {
+		glog.V(8).Info("Spin run error", err.Error())
+	}
+
+	if err := spinner.Start(); err != nil {
+		glog.V(8).Info("Spin start error", err.Error())
+		// glog.Errorf("Spin start error %v", err)
+		// return err
+	}
+	//-----yacspin-----------------
 	//TODO: delete file
 	var id string
-	iD, err := getSugId(DirSug, strings.TrimSuffix(name, " "))
+	iD, err := ii.getSugId(DirSug, strings.TrimSuffix(name, " "))
 	if err != nil {
-		fmt.Printf(string(colorRed), "file or dir not exist: "+err.Error())
+		// fmt.Printf(string(colorRed), "file or dir not exist: "+err.Error())
 		glog.Errorln("file or dir not exist: ", err.Error())
+		spinner.StopFailMessage("   file or dir not exist, or try to use rmd delete by id")
+		if err := spinner.StopFail(); err != nil {
+			glog.V(8).Info("file or dir not exist", err)
+		}
 		return err
 	}
 	id = iD
@@ -511,22 +629,41 @@ func (ii *ItemInfo) Rm(name, types string) error {
 	file, err := utils.StartSrv(drive.DriveScope).Files.Get(id).Do()
 	if err != nil {
 		glog.Errorln("file or dir not exist: ", err.Error())
+		spinner.StopFailMessage("   file or dir not exist")
+		if err := spinner.StopFail(); err != nil {
+			glog.V(8).Info("file or dir not exist", err)
+		}
 		return err
 	}
 
 	if id == ii.RootId {
+		spinner.StopFailMessage("   The root folder should not be deleted")
+		if err := spinner.StopFail(); err != nil {
+			glog.V(8).Info("The root folder should not be deleted", err)
+		}
 		return errors.New("The root folder should not be deleted")
 	}
 
 	if types == "-r" && file.MimeType != "application/vnd.google-apps.folder" {
+		spinner.StopFailMessage("   The delete item: item is not folder")
+		if err := spinner.StopFail(); err != nil {
+			glog.V(8).Info("The delete item: item is not folder", err)
+		}
 		return errors.New("The delete item: item is not folder")
 	}
 
 	err = utils.StartSrv(drive.DriveScope).Files.Delete(id).Do()
 
 	if err != nil {
-		glog.Errorln("file or dir delete failed: ", err.Error())
+		spinner.StopFailMessage("   File or dir delete failed")
+		if err := spinner.StopFail(); err != nil {
+			glog.V(8).Info("File or dir delete failed", err)
+		}
+		glog.Errorln("File or dir delete failed: ", err.Error())
 		return err
+	}
+	if err := spinner.Stop(); err != nil {
+		glog.Errorf("Spinner err: %v", err)
 	}
 	return nil
 }
@@ -535,7 +672,7 @@ func (ii *ItemInfo) Rm(name, types string) error {
 func (ii *ItemInfo) Trash(name, types string) error {
 	//TODO: trash file
 	var id string
-	iD, err := getSugId(DirSug, strings.TrimSuffix(name, " "))
+	iD, err := ii.getSugId(DirSug, strings.TrimSuffix(name, " "))
 	if err != nil {
 		fmt.Printf(string(colorRed), "file or dir not exist: ", err.Error())
 		glog.Errorln("file or dir not exist: ", err.Error())
@@ -593,7 +730,7 @@ func (ii *ItemInfo) Trashd(id, types string) error {
 	return nil
 }
 
-func (ii *ItemInfo) Upload(file, parentId string) (*drive.File, error) {
+func (ii *ItemInfo) upload(file, parentId string) (*drive.File, error) {
 	//-----yacspin-----------------
 	spinner, err := yacspin.New(*cfg)
 	if err != nil {
@@ -648,7 +785,15 @@ func (ii *ItemInfo) Upload(file, parentId string) (*drive.File, error) {
 	ufile, err := utils.StartSrv(drive.DriveScope).Files.
 		Create(u).
 		ResumableMedia(context.Background(), fi, fileInfo.Size(), "").
-		ProgressUpdater(func(now, size int64) { fmt.Printf("%d, %d\r", now, size) }).
+		ProgressUpdater(func(now, size int64) {
+			// fmt.Printf("%d, %d\r", now, size)
+			rate := now * 100 / size
+			mesg := fmt.Sprintf("%d%%  %s / %s",
+				Brown(rate),
+				Brown(humanize.Bytes(uint64(now))),
+				Brown(humanize.Bytes(uint64(size))))
+			spinner.Message(mesg)
+		}).
 		Do()
 	if err != nil {
 		spinner.StopFailMessage("   Upload file failed")
@@ -683,12 +828,12 @@ func (ii *ItemInfo) CreateDir(name string) (*drive.File, error) {
 }
 
 // createInDir...
-func CreateInDir() func(name, path, parentId string) (*drive.File, error) {
+func CreateInDir() func(name, path, parentId string) (map[string]string, *drive.File, error) {
 	var parent string
 	parents := make(map[string]string)
-	return func(name, path, parentId string) (*drive.File, error) {
+	return func(name, path, parentId string) (map[string]string, *drive.File, error) {
 		parDir, parName := filepath.Split(path[0:len(path)-1])
-		glog.V(8).Info("fil: ",name ," parDir,",parDir, " , parName", parName)
+		glog.V(8).Info("fil: ",name ," parDir,",parDir, " , parName ", parName)
 		parent = parents[parName]
 		if parent == "" {
 			parent = parentId
@@ -702,12 +847,12 @@ func CreateInDir() func(name, path, parentId string) (*drive.File, error) {
 
 		if err != nil {
 			glog.Errorln("Could not create dir: ", err.Error())
-			return nil, err
+			return nil, nil, err
 		}
 
-		fmt.Printf(string(colorYellow), dir.Name, "", " has been created")
+		fmt.Printf(string(colorYellow), dir.Name, "", " has been created" )
 		parents[dir.Name] = dir.Id
-		return dir, nil
+		return parents, dir, nil
 	}
 }
 
@@ -762,16 +907,20 @@ func (ii *ItemInfo) GetNode(cmd string) {
 	// println(id)
 	var id string
 
+	if len(strings.Split(cmd, "cd ")) <= 1{
+		return
+	}
 	name := strings.Trim(strings.Split(cmd, "cd ")[1], " ")
 	dirInfo := getSugInfo()
 
 	if name == "root" || name == "My Drive" {
 		id = "root"
 	} else {
-		iD, err := getSugId(DirSug, strings.TrimSuffix(name, " "))
+		iD, err := ii.getSugId(DirSug, strings.TrimSuffix(name, " "))
 		if err != nil {
 			fmt.Printf(string(colorRed), "file or dir not exist: "+err.Error())
 			glog.Errorln("file or dir not exist: " + err.Error())
+			return
 			// return nil, err
 		}
 		id = iD
@@ -809,7 +958,7 @@ func (ii *ItemInfo) Move(cmd string) error {
 		return errors.New("Wrong command format, please use \"h\" get help")
 	}
 	fil := strings.Split(strings.Split(cmd, "mv ")[1], ">")
-	iD, err := getSugId(AllSug, strings.TrimSuffix(fil[0], " "))
+	iD, err := ii.getSugId(AllSug, strings.TrimSuffix(fil[0], " "))
 	if err != nil {
 		glog.Errorln("file or dir not exist: " + err.Error())
 		return err
@@ -828,7 +977,7 @@ func (ii *ItemInfo) Move(cmd string) error {
 	if len(breakDown(fil[1])) > 1 { // move to another folder
 		newParentName := strings.Trim(breakDown(fil[1])[len(breakDown(fil[1]))-2], " ") // move to another folder
 		newName := strings.Trim(breakDown(fil[1])[len(breakDown(fil[1]))-1], " ")       // change item name
-		iD, err := getSugId(AllSug, newParentName)
+		iD, err := ii.getSugId(AllSug, newParentName)
 		if err != nil {
 			glog.Errorln("file or dir not exist: ", err.Error())
 			return err
@@ -1025,7 +1174,7 @@ func downld(id, target, filename, mimeType, path string) error {
 }
 
 // download file by name
-func Download(cmd string) error {
+func (ii *ItemInfo) Download(cmd string) error {
 	//TODO: download file
 
 	//1 transfer file name to id
@@ -1035,7 +1184,7 @@ func Download(cmd string) error {
 		return errors.New("Wrong path format, please use \"h\" get help")
 	}
 	fil := strings.Split(strings.Split(cmd, "d ")[1], ">")
-	iD, err := getSugId(AllSug, strings.TrimSuffix(fil[0], " "))
+	iD, err := ii.getSugId(AllSug, strings.TrimSuffix(fil[0], " "))
 	if err != nil {
 		fmt.Printf(string(colorRed), "file or dir not exist: "+err.Error())
 		glog.Errorln("file or dir not exist: " + err.Error())
@@ -1293,7 +1442,6 @@ func StartingDownload(id, path string) {
 	}
 }
 
-//------------------------------TESTING BELOW
 func visit(files *[]string, isDir bool) filepath.WalkFunc {
 	return func(path string, info os.FileInfo, err error) error {
 		// glog.V(8).Info(info)
@@ -1307,10 +1455,10 @@ func visit(files *[]string, isDir bool) filepath.WalkFunc {
 				// glog.V(8).Info(info.Mode().Perm().String)
 				glog.Error(err)
 			}
-			if strings.HasPrefix(info.Name(), ".") {
-				// glog.V(8).Info(path)
-				return nil
-			}
+			// if strings.HasPrefix(info.Name(), ".") {
+			// 	// glog.V(8).Info(path)
+			// 	return nil
+			// }
 			// if info.IsDir() && noDir {
 			// 	return nil
 			// }
@@ -1338,6 +1486,7 @@ func GetLocalItems(path string, isDir bool, files *[]string) {
 	// return files
 }
 
+// Upload function 
 func (ii *ItemInfo) UpLod(file, scope string) {
 	//-----yacspin-----------------
 	spinner, err := yacspin.New(*cfg)
@@ -1363,14 +1512,15 @@ func (ii *ItemInfo) UpLod(file, scope string) {
 		// return err
 	}
 	//-----yacspin-----------------
-	var tmpId string
+	// var tmpId string
+	var parns map[string]string
 	createInDir := CreateInDir()
 
 	files := make([]string, 0)
 	GetLocalItems(file, false, &files)
 	for _, file := range files {
 		// home, _ := os.UserHomeDir()
-		// fmt.Println(strings.Replace(file, home+string(os.PathSeparator), "", 1),  "===== ", len(files))
+		// fmt.Println("FILE: ",file, "  ",strings.Replace(file, home+string(os.PathSeparator), "", 1),  "===== ", len(files))
 		dir, fil := filepath.Split(file)
 		// glog.V(8).Info("dir: ", dir, "   file: ", fil, " ----: ", utils.IsDir(file))
 
@@ -1398,21 +1548,23 @@ func (ii *ItemInfo) UpLod(file, scope string) {
 				}
 				return
 			} else {
-				dr, err := createInDir(fil, dir, ii.ItemId)
+				parents, _, err := createInDir(fil, dir, ii.ItemId)
 				if err != nil {
 					glog.Error(err)
 					return
 				}
-				tmpId = dr.Id
+				// tmpId = dr.Id
+				parns = parents
 			}
 		} else {
-			// glog.V(8).Info("fil: ",fil," subdir ,",subdir, " , subfile  ", subfil)
 			if spinner.Active(){
 				if err := spinner.Pause(); err != nil{
 					glog.Error(err)
 				}
 			}
-			_, err := ii.Upload(file, tmpId)
+			_, parName := filepath.Split(dir[0:len(dir)-1])
+			// glog.V(8).Info("file: ",file," id: ", tmpId, " parensID: ", parns[parName], " parDir: ", parDir)
+			_, err := ii.upload(file, parns[parName])
 			if err != nil {
 				spinner.StopFailMessage("   File upload failed")
 				if err := spinner.StopFail(); err != nil {
@@ -1432,6 +1584,7 @@ func (ii *ItemInfo) UpLod(file, scope string) {
 	}
 }
 
+//------------------------------TESTING BELOW
 // func Lo() {
 // 	//-----------------------------
 // 	var total int64 = 1024 * 1024 * 1500

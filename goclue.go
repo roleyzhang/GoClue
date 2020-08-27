@@ -144,8 +144,9 @@ func completer(in prompt.Document) []prompt.Suggest {
 	if len(arrCommandStr) >= 1 {
 		switch arrCommandStr[0] {
 		case "d":
-			// if fileSug != nil {
-			// 	s = *fileSug
+			// if !utils.IsContain(*allSug, in.GetWordBeforeCursorWithSpace()) {
+			// 	// fmt.Println("cause u : ", in.GetWordBeforeCursorWithSpace())
+			// 	cmd.PathFileGenerate(in.GetWordBeforeCursorWithSpace(), "4")
 			// }
 			if allSug != nil {
 				s = *allSug
@@ -158,12 +159,16 @@ func completer(in prompt.Document) []prompt.Suggest {
 			// 	s = *allSug
 			// }
 		case "rm":
-			if fileSug != nil {
-				s = *fileSug
+			// if !utils.IsContain(*allSug, in.GetWordBeforeCursorWithSpace()) {
+			// 	// fmt.Println("cause u : ", in.GetWordBeforeCursorWithSpace())
+			// 	cmd.PathFileGenerate(in.GetWordBeforeCursorWithSpace(), "4")
+			// }
+			if allSug != nil {
+				s = *allSug
 			}
 		case "rmd":
 			if idfileSug != nil {
-				s = *idfileSug
+				s = *idallSug
 			}
 		case "tr":
 			if fileSug != nil {
@@ -174,6 +179,10 @@ func completer(in prompt.Document) []prompt.Suggest {
 				s = *idfileSug
 			}
 		case "mv":
+			if !utils.IsContain(*allSug, in.GetWordBeforeCursorWithSpace()) {
+				// fmt.Println("cause u : ", in.GetWordBeforeCursorWithSpace())
+				cmd.PathFileGenerate(in.GetWordBeforeCursorWithSpace(), "4")
+			}
 			if allSug != nil {
 				s = *allSug
 			}
@@ -214,7 +223,7 @@ func completer(in prompt.Document) []prompt.Suggest {
 		// }
 		switch arrCommandStr[0] {
 		case "d":
-			if !utils.IsContain(*pathSug, in.GetWordBeforeCursorWithSpace()){
+			if !utils.IsContain(*pathSug, in.GetWordBeforeCursorWithSpace()) {
 				// fmt.Println("cause u : ", in.GetWordBeforeCursorWithSpace())
 				cmd.PathGenerate(in.GetWordBeforeCursorWithSpace(), "4")
 			}
@@ -222,7 +231,7 @@ func completer(in prompt.Document) []prompt.Suggest {
 				s = *pathSug
 			}
 		case "dd":
-			if !utils.IsContain(*pathSug, in.GetWordBeforeCursorWithSpace()){
+			if !utils.IsContain(*pathSug, in.GetWordBeforeCursorWithSpace()) {
 				// fmt.Println("cause u : ", in.GetWordBeforeCursorWithSpace())
 				cmd.PathGenerate(in.GetWordBeforeCursorWithSpace(), "4")
 			}
@@ -230,12 +239,12 @@ func completer(in prompt.Document) []prompt.Suggest {
 				s = *pathSug
 			}
 		case "u":
-			if !utils.IsContain(*pathSug, in.GetWordBeforeCursorWithSpace()){
+			if !utils.IsContain(*allSug, in.GetWordBeforeCursorWithSpace()) {
 				// fmt.Println("cause u : ", in.GetWordBeforeCursorWithSpace())
-				cmd.PathGenerate(in.GetWordBeforeCursorWithSpace(), "4")
+				cmd.PathFileGenerate(in.GetWordBeforeCursorWithSpace(), "4")
 			}
-			if pathSug != nil {
-				s = *pathSug
+			if allSug != nil {
+				s = *allSug
 			}
 		}
 		switch arrCommandStr[1] {
@@ -362,8 +371,8 @@ func init() {
 	}
 	//-----yacspin-----------------
 	//------Checking Linux system
-	if !utils.IsCommandAvailable("tree"){
-			// fmt.Println("output===", "yes")
+	if !utils.IsCommandAvailable("tree") {
+		// fmt.Println("output===", "yes")
 		glog.Fatalln(Red("Please install tree firstly, then restart this program"))
 	}
 	//------Checking Linux system end
@@ -398,6 +407,7 @@ func init() {
 	page = make(map[int]string)
 	// for prompt suggest
 	cmd.PathGenerate("HOME", "5")
+	cmd.PathFileGenerate("HOME", "3")
 
 	ii = cmd.Ii
 	cmd.Ps.GetRoot(&ii)
@@ -475,29 +485,37 @@ func runCommand(commandStr string) {
 			}
 			cmd.Ps.SetPrefix("")
 		case "rm":
-			if arrCommandStr[1] == "-r" {
-				if err := ii.Rm(arrCommandStr[2], arrCommandStr[1]); err != nil {
-					glog.Error("Can not delete folder" + err.Error())
+			glog.V(8).Info(len(arrCommandStr[1:]))
+			for _, value := range arrCommandStr[1:] {
+				if arrCommandStr[1] == "-r" {
+					if err := ii.Rm(value, arrCommandStr[1]); err != nil {
+						// if err := ii.Rm(arrCommandStr[2], arrCommandStr[1]); err != nil {
+						glog.Error("Can not delete folder" + err.Error())
+					}
+				} else {
+					if err := ii.Rm(value, ""); err != nil {
+						// if err := ii.Rm(arrCommandStr[1], ""); err != nil {
+						glog.Error("Can not delete file" + err.Error())
+					}
 				}
-			} else {
-				if err := ii.Rm(arrCommandStr[1], ""); err != nil {
-					glog.Error("Can not delete file" + err.Error())
-				}
+
 			}
 			cmd.Ps.SetPrefix("")
 		case "rmd":
-			if arrCommandStr[1] == "-r" {
-				if err := ii.Rmd(arrCommandStr[2], arrCommandStr[1]); err != nil {
-					glog.Error("Can not delete folder" + err.Error())
-				}
-			} else {
-				if err := ii.Rmd(arrCommandStr[1], ""); err != nil {
-					glog.Error("Can not delete file" + err.Error())
+			for _, value := range arrCommandStr[1:] {
+				if arrCommandStr[1] == "-r" {
+					if err := ii.Rmd(value, arrCommandStr[1]); err != nil {
+						glog.Error("Can not delete folder" + err.Error())
+					}
+				} else {
+					if err := ii.Rmd(value, ""); err != nil {
+						glog.Error("Can not delete file" + err.Error())
+					}
 				}
 			}
 			cmd.Ps.SetPrefix("")
 		case "d":
-			err := cmd.Download(commandStr)
+			err := ii.Download(commandStr)
 			if err != nil {
 				glog.Errorf("Unable to download files: %v", err.Error())
 			}
