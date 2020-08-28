@@ -426,6 +426,7 @@ func runCommand(commandStr string) {
 		case "q":
 			os.Exit(0)
 		case "lo":
+			cmd.Lo()
 			// ii.Lo(drive.DriveScope)
 			// service = startSrv()
 			// println("this is login")

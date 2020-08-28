@@ -1585,6 +1585,10 @@ func (ii *ItemInfo) UpLod(file, scope string) {
 }
 
 //------------------------------TESTING BELOW
+
+func Lo() {
+
+}
 // func Lo() {
 // 	//-----------------------------
 // 	var total int64 = 1024 * 1024 * 1500
