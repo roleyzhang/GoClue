@@ -135,7 +135,7 @@ func (ii *ItemInfo) getSugId(sug *[]prompt.Suggest, text string) (string, error)
 			}
 		}
 	}
-	qString := "name='" + text + "'" +" and '"+ii.ItemId+"' in parents "+ " and trashed=false"
+	qString := "name='" + text + "'" + " and '" + ii.ItemId + "' in parents " + " and trashed=false"
 
 	file, err := utils.StartSrv(drive.DriveScope).Files.List().
 		Q(qString).
@@ -530,7 +530,7 @@ func (ii *ItemInfo) Rmd(id, types string) error {
 	}
 	// msg := fmt.Sprintf("   Getting %s information from server", id)
 	// spinner.Suffix(msg)
-	msgs := fmt.Sprintf("   Delete %s... %s ",id, Brown("done"))
+	msgs := fmt.Sprintf("   Delete %s... %s ", id, Brown("done"))
 	spinner.StopMessage(msgs)
 	err = spinner.CharSet(yacspin.CharSets[9])
 	// handle the error
@@ -598,7 +598,7 @@ func (ii *ItemInfo) Rm(name, types string) error {
 	}
 	// msg := fmt.Sprintf("   Getting %s information from server", id)
 	// spinner.Suffix(msg)
-	msgs := fmt.Sprintf("   Delete %s... %s ",name, Brown("done"))
+	msgs := fmt.Sprintf("   Delete %s... %s ", name, Brown("done"))
 	spinner.StopMessage(msgs)
 	err = spinner.CharSet(yacspin.CharSets[9])
 	// handle the error
@@ -832,8 +832,8 @@ func CreateInDir() func(name, path, parentId string) (map[string]string, *drive.
 	var parent string
 	parents := make(map[string]string)
 	return func(name, path, parentId string) (map[string]string, *drive.File, error) {
-		parDir, parName := filepath.Split(path[0:len(path)-1])
-		glog.V(8).Info("fil: ",name ," parDir,",parDir, " , parName ", parName)
+		parDir, parName := filepath.Split(path[0 : len(path)-1])
+		glog.V(8).Info("fil: ", name, " parDir,", parDir, " , parName ", parName)
 		parent = parents[parName]
 		if parent == "" {
 			parent = parentId
@@ -850,7 +850,7 @@ func CreateInDir() func(name, path, parentId string) (map[string]string, *drive.
 			return nil, nil, err
 		}
 
-		fmt.Printf(string(colorYellow), dir.Name, "", " has been created" )
+		fmt.Printf(string(colorYellow), dir.Name, "", " has been created")
 		parents[dir.Name] = dir.Id
 		return parents, dir, nil
 	}
@@ -907,7 +907,7 @@ func (ii *ItemInfo) GetNode(cmd string) {
 	// println(id)
 	var id string
 
-	if len(strings.Split(cmd, "cd ")) <= 1{
+	if len(strings.Split(cmd, "cd ")) <= 1 {
 		return
 	}
 	name := strings.Trim(strings.Split(cmd, "cd ")[1], " ")
@@ -1486,7 +1486,7 @@ func GetLocalItems(path string, isDir bool, files *[]string) {
 	// return files
 }
 
-// Upload function 
+// Upload function
 func (ii *ItemInfo) UpLod(file, scope string) {
 	//-----yacspin-----------------
 	spinner, err := yacspin.New(*cfg)
@@ -1557,12 +1557,12 @@ func (ii *ItemInfo) UpLod(file, scope string) {
 				parns = parents
 			}
 		} else {
-			if spinner.Active(){
-				if err := spinner.Pause(); err != nil{
+			if spinner.Active() {
+				if err := spinner.Pause(); err != nil {
 					glog.Error(err)
 				}
 			}
-			_, parName := filepath.Split(dir[0:len(dir)-1])
+			_, parName := filepath.Split(dir[0 : len(dir)-1])
 			// glog.V(8).Info("file: ",file," id: ", tmpId, " parensID: ", parns[parName], " parDir: ", parDir)
 			_, err := ii.upload(file, parns[parName])
 			if err != nil {
@@ -1573,7 +1573,7 @@ func (ii *ItemInfo) UpLod(file, scope string) {
 				return
 			}
 			if !spinner.Active() {
-				if err := spinner.Unpause(); err != nil{
+				if err := spinner.Unpause(); err != nil {
 					glog.Error(err)
 				}
 			}
@@ -1587,8 +1587,55 @@ func (ii *ItemInfo) UpLod(file, scope string) {
 //------------------------------TESTING BELOW
 
 func Lo() {
+	// Type : user, group, domain, anyone - all are small letter
+	// *EmailAddress : use any google account: email or groups address
+	// *Role : reader, writer, owner, organizer
+	// Domain : use any Google domain address
 
+
+
+	var permisn *drive.Permission = new(drive.Permission)
+	permisn.EmailAddress = "zhangroley@gmail.com"
+	permisn.Role = "writer"
+	// permisn.DisplayName = "GoClue Testing"
+	permisn.Type = "user"
+
+	permision, err := utils.StartSrv(drive.DriveScope).
+		Permissions.Create("0B4_B23yaHaiYVkVlcGpOTl9WZVU", permisn).Do()
+
+	if err != nil{
+		glog.Errorf("Unable to create share item: %v", err)
+	}
+
+	glog.V(8).Infof("ID: %s\n Role: %s\n Email: %s\n DisplayName: %s\n Domain: %s\n Type: %s\n",
+		permision.Id, permision.Role, permision.EmailAddress, permision.DisplayName, permision.Domain, permision.Type)
+
+	item, err := utils.StartSrv(drive.DriveScope).Permissions.List("0B4_B23yaHaiYVkVlcGpOTl9WZVU").Do()
+
+	// 0B4_B23yaHaiYdk9uNWVYRlE3UkE
+	// 1wbmcPMimOknB5D4eQ9QuS6bXuFGlZ2B-
+
+	// 15b0-LD0DwN4Z7zs08ClVuHwCojcPUgKP
+	// 0B4_B23yaHaiYVkVlcGpOTl9WZVU
+	// Files.Get(id).
+	// // Files.Get("root").
+	// Fields("id, name, mimeType, parents, owners, createdTime").
+	// Do()
+	if err != nil {
+		println("shit happened: ", err.Error())
+		glog.Errorf("Unable to get share info: %v", err)
+		// return nil
+	}
+	for _, value := range item.Permissions {
+		glog.V(8).Infof("ID: %s\n allowDiscovery: %t\n displayName: %s\n domain: %s\n email: %s\n  expirationTime: %s\n  role: %s\n  type: %s\n",
+			value.Id, value.AllowFileDiscovery, value.DisplayName, value.Domain, value.EmailAddress, value.ExpirationTime, value.Role, value.Type)
+		for _, valu := range value.PermissionDetails {
+			glog.V(8).Infof("role: %s\n Inherited: %t\n PermissionType: %s\n InheritedFrom: %s\n",
+				valu.Role, valu.Inherited, valu.PermissionType, valu.InheritedFrom)
+		}
+	}
 }
+
 // func Lo() {
 // 	//-----------------------------
 // 	var total int64 = 1024 * 1024 * 1500
