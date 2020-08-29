@@ -21,6 +21,7 @@ import (
 	"github.com/golang/glog"
 
 	// "os/exec"
+	// "encoding/json"
 	"github.com/c-bata/go-prompt"
 	"github.com/cheynewallace/tabby"
 	"github.com/dustin/go-humanize"
@@ -42,6 +43,12 @@ var AllSug *[]prompt.Suggest
 var IdfileSug *[]prompt.Suggest
 var IddirSug *[]prompt.Suggest
 var IdAllSug *[]prompt.Suggest
+
+var TypesSug *[]prompt.Suggest
+var RoleSug *[]prompt.Suggest
+var GmailSug *[]prompt.Suggest
+var DomainSug *[]prompt.Suggest
+
 var cfg *yacspin.Config
 var pthSep string
 
@@ -80,6 +87,24 @@ func init() {
 	colorYellow = "\033[33m%s %s %s\n"
 	colorRed = "\033[31m%s\n"
 
+	tps := []prompt.Suggest{
+		{Text: "user", Description: "identifies the scope of user"},
+		{Text: "group", Description: "identifies the scope of group"},
+		{Text: "domain", Description: "identifies the scope of domain"},
+		{Text: "anyone", Description: "identifies the scope of anyone"},
+	}
+	TypesSug = &tps
+	roles := []prompt.Suggest{
+		{Text: "organizer", Description: "defines what users can do with a file or folder"},
+		{Text: "fileOrganizer", Description: "defines what users can do with a file or folder"},
+		{Text: "writer", Description: "defines what users can do with a file or folder"},
+		{Text: "commenter", Description: "defines what users can do with a file or folder"},
+		{Text: "reader", Description: "defines what users can do with a file or folder"},
+	}
+	RoleSug = &roles
+
+	GmailSug = utils.LoadproSugg("mail.json")
+	DomainSug = utils.LoadproSugg("domain.json")
 	// for list function
 	commands = make(map[string]string)
 	commands["default"] = "trashed=false"
@@ -160,15 +185,6 @@ func (ii *ItemInfo) getSugId(sug *[]prompt.Suggest, text string) (string, error)
 	return file.Files[0].Id, nil
 }
 
-// generate prompt suggest for floder
-func getSugInfo() func(folder prompt.Suggest) *[]prompt.Suggest {
-	a := make([]prompt.Suggest, 0)
-	return func(folder prompt.Suggest) *[]prompt.Suggest {
-		a = append(a, folder)
-		return &a
-	}
-}
-
 //-----------------------------
 // type Callback func(msg string)
 
@@ -235,7 +251,7 @@ func (ps *PromptStyle) SetDynamicPrefix() (string, bool) {
 
 // getRoot ...
 func (ps *PromptStyle) GetRoot(ii *ItemInfo) {
-	dirInfo := getSugInfo()
+	dirInfo := utils.GetSugInfo()
 	item, err := utils.StartSrv(drive.DriveScope).
 		// Files.Get(id).
 		Files.Get("root").
@@ -302,12 +318,12 @@ func (ii *ItemInfo) ShowResult(
 		// return err
 	}
 	//-----yacspin-----------------
-	dirInfo := getSugInfo()
-	fileInfo := getSugInfo()
-	allInfo := getSugInfo()
-	idfileInfo := getSugInfo()
-	iddirInfo := getSugInfo()
-	idAllInfo := getSugInfo()
+	dirInfo := utils.GetSugInfo()
+	fileInfo := utils.GetSugInfo()
+	allInfo := utils.GetSugInfo()
+	idfileInfo := utils.GetSugInfo()
+	iddirInfo := utils.GetSugInfo()
+	idAllInfo := utils.GetSugInfo()
 
 	//--------every time runCommand add folder history to dirSug
 	for key, value := range ii.Path {
@@ -337,7 +353,7 @@ func (ii *ItemInfo) ShowResult(
 	r, err := utils.StartSrv(scope).Files.List().
 		Q(qString).
 		PageSize(40).
-		Fields("nextPageToken, files(id, name, mimeType, owners, parents, createdTime)").
+		Fields("nextPageToken, files(id, name, mimeType, owners, parents, createdTime, permissions, sharingUser)").
 		PageToken(page[counter]).
 		// OrderBy("modifiedTime").
 		Do()
@@ -357,7 +373,10 @@ func (ii *ItemInfo) ShowResult(
 		t.AddHeader("NAME", "ID", "TYPE", "OWNER", "CREATED TIME")
 		for _, i := range r.Files {
 			if i.MimeType == "application/vnd.google-apps.folder" {
-				// fmt.Printf(string(colorGreen), i.Name, i.Id, i.MimeType, i.Owners[0].DisplayName, i.Parents, i.CreatedTime)
+				// for _, value := range i.Permissions{
+				// fmt.Println(i.Name, i.Id, i.MimeType,len(i.Permissions), value.EmailAddress, value.Id, value.Role)
+				// fmt.Println(i.Name, i.Id, i.MimeType,len(i.Permissions), i.SharingUser)
+				// }
 				var name string
 				var types string
 				if len(i.Name) > ii.maxLength {
@@ -365,7 +384,11 @@ func (ii *ItemInfo) ShowResult(
 				} else {
 					name = i.Name
 				}
-				types = strings.Split(i.MimeType, "/")[1]
+				if len(i.Permissions) > 1 {
+					types = fmt.Sprintf("%s %s", Brown("*S*"), strings.Split(i.MimeType, "/")[1])
+				} else {
+					types = strings.Split(i.MimeType, "/")[1]
+				}
 				t.AddLine(Bold(Cyan(name)),
 					Bold(Cyan(i.Id)),
 					Bold(Cyan(types)),
@@ -382,6 +405,10 @@ func (ii *ItemInfo) ShowResult(
 				// 	dirSug = dirInfo(s)
 			} else {
 				// fmt.Printf(string(colorCyan), i.Name, i.Id, i.MimeType, i.Owners[0].DisplayName, i.Parents, i.CreatedTime)
+				// for _, value := range i.Permissions{
+				// 	fmt.Println(i.Name, i.Id, i.MimeType,len(i.Permissions), value.EmailAddress,value.Id, value.Role)
+				// fmt.Println(i.Name, i.Id, i.MimeType,len(i.Permissions), i.SharingUser)
+				// }
 				var name string
 				var types string
 				if len(i.Name) > ii.maxLength {
@@ -389,7 +416,11 @@ func (ii *ItemInfo) ShowResult(
 				} else {
 					name = i.Name
 				}
-				types = strings.Split(i.MimeType, "/")[1]
+				if len(i.Permissions) > 1 {
+					types = fmt.Sprintf("%s %s", Brown("*S*"), strings.Split(i.MimeType, "/")[1])
+				} else {
+					types = strings.Split(i.MimeType, "/")[1]
+				}
 				if i.MimeType == "application/vnd.google-apps.shortcut" {
 					t.AddLine(Gray(name),
 						Gray(i.Id),
@@ -423,7 +454,7 @@ func (ii *ItemInfo) ShowResult(
 //  generate folder path...
 func PathGenerate(path, level string) {
 
-	pathInfo := getSugInfo()
+	pathInfo := utils.GetSugInfo()
 	// home, _ :=os.UserHomeDir()
 	if path == "HOME" {
 		// only list folders
@@ -470,7 +501,7 @@ func PathGenerate(path, level string) {
 
 //  generate folder and file path...
 func PathFileGenerate(path, level string) {
-	pathInfo := getSugInfo()
+	pathInfo := utils.GetSugInfo()
 	// home, _ :=os.UserHomeDir()
 
 	if path == "HOME" {
@@ -911,7 +942,7 @@ func (ii *ItemInfo) GetNode(cmd string) {
 		return
 	}
 	name := strings.Trim(strings.Split(cmd, "cd ")[1], " ")
-	dirInfo := getSugInfo()
+	dirInfo := utils.GetSugInfo()
 
 	if name == "root" || name == "My Drive" {
 		id = "root"
@@ -1585,55 +1616,152 @@ func (ii *ItemInfo) UpLod(file, scope string) {
 }
 
 //------------------------------TESTING BELOW
-
-func Lo() {
+func (ii *ItemInfo) Share(idorName, types, role, gmail, domain string, isByName bool) {
+	// If the type is user or group, provide an emailAddress. If the type is domain, provide a domain.
 	// Type : user, group, domain, anyone - all are small letter
 	// *EmailAddress : use any google account: email or groups address
-	// *Role : reader, writer, owner, organizer
+	// *Role : organizer/owner	fileOrganizer	writer	commenter	reader
 	// Domain : use any Google domain address
 
+	//-----yacspin-----------------
+	spinner, err := yacspin.New(*cfg)
+	if err != nil {
+		glog.Error("Spin run error", err.Error())
+	}
+	if err := spinner.Frequency(100 * time.Millisecond); err != nil {
+		glog.Error("Spin run error", err.Error())
+	}
+	// msg := fmt.Sprintf("   Getting %s information from server", id)
+	// spinner.Suffix(msg)
+	msgs := fmt.Sprintf("...Share %s %s ", idorName, Brown("done"))
+	spinner.StopMessage(msgs)
+	err = spinner.CharSet(yacspin.CharSets[29])
+	// handle the error
+	if err != nil {
+		glog.V(8).Info("Spin run error", err.Error())
+	}
 
-
+	if err := spinner.Start(); err != nil {
+		glog.V(8).Info("Spin start error", err.Error())
+		// glog.Errorf("Spin start error %v", err)
+		// return err
+	}
+	//-----yacspin-----------------
+	//-----name to id--------------
+	var id string
+	if isByName {
+		iD, err := ii.getSugId(DirSug, strings.TrimSuffix(idorName, " "))
+		if err != nil {
+			spinner.StopFailMessage("   File or dir not exist, maybe file/folder name include space, try shared command by file/folder ID")
+			if err := spinner.StopFail(); err != nil {
+				glog.V(8).Info(" File or dir not exist", err)
+			}
+			glog.Errorln("file or dir not exist: ", err.Error())
+			return
+		}
+		id = iD
+	} else {
+		id = idorName
+	}
+	//-----name to id--------------
 	var permisn *drive.Permission = new(drive.Permission)
-	permisn.EmailAddress = "zhangroley@gmail.com"
-	permisn.Role = "writer"
-	// permisn.DisplayName = "GoClue Testing"
-	permisn.Type = "user"
+	permisn.EmailAddress = gmail
+	permisn.Role = role
+	permisn.Type = types
+	permisn.Domain = domain
 
-	permision, err := utils.StartSrv(drive.DriveScope).
-		Permissions.Create("0B4_B23yaHaiYVkVlcGpOTl9WZVU", permisn).Do()
+	_, errs := utils.StartSrv(drive.DriveScope).Permissions.Create(id, permisn).Do()
 
-	if err != nil{
+	if errs != nil {
+		spinner.StopFailMessage("   Unable to create share item")
+		if err := spinner.StopFail(); err != nil {
+			glog.V(8).Info(" Unable to create share item", err)
+		}
 		glog.Errorf("Unable to create share item: %v", err)
 	}
 
-	glog.V(8).Infof("ID: %s\n Role: %s\n Email: %s\n DisplayName: %s\n Domain: %s\n Type: %s\n",
-		permision.Id, permision.Role, permision.EmailAddress, permision.DisplayName, permision.Domain, permision.Type)
-
-	item, err := utils.StartSrv(drive.DriveScope).Permissions.List("0B4_B23yaHaiYVkVlcGpOTl9WZVU").Do()
-
-	// 0B4_B23yaHaiYdk9uNWVYRlE3UkE
-	// 1wbmcPMimOknB5D4eQ9QuS6bXuFGlZ2B-
-
-	// 15b0-LD0DwN4Z7zs08ClVuHwCojcPUgKP
-	// 0B4_B23yaHaiYVkVlcGpOTl9WZVU
-	// Files.Get(id).
-	// // Files.Get("root").
-	// Fields("id, name, mimeType, parents, owners, createdTime").
-	// Do()
-	if err != nil {
-		println("shit happened: ", err.Error())
-		glog.Errorf("Unable to get share info: %v", err)
-		// return nil
+	if err := spinner.Stop(); err != nil {
+		glog.Errorf("Spinner err: %v", err)
 	}
-	for _, value := range item.Permissions {
-		glog.V(8).Infof("ID: %s\n allowDiscovery: %t\n displayName: %s\n domain: %s\n email: %s\n  expirationTime: %s\n  role: %s\n  type: %s\n",
-			value.Id, value.AllowFileDiscovery, value.DisplayName, value.Domain, value.EmailAddress, value.ExpirationTime, value.Role, value.Type)
-		for _, valu := range value.PermissionDetails {
-			glog.V(8).Infof("role: %s\n Inherited: %t\n PermissionType: %s\n InheritedFrom: %s\n",
-				valu.Role, valu.Inherited, valu.PermissionType, valu.InheritedFrom)
+
+	if GmailSug != nil {
+		if !utils.IsContain(*GmailSug, gmail) {
+			*GmailSug = append(*GmailSug, prompt.Suggest{Text: gmail, Description: ""})
 		}
 	}
+
+	if DomainSug != nil {
+		if !utils.IsContain(*DomainSug, domain) {
+			*DomainSug = append(*DomainSug, prompt.Suggest{Text: domain, Description: ""})
+		}
+	}
+}
+
+func Lo() {
+	// DomainSug = domainInfo(prompt.Suggest{Text: "www.roleyzhang.com", Description: ""})
+	glog.V(8).Info(utils.GetAppHome())
+
+	//----Load mail & domain Sug
+	//----mail part
+	//----domain part
+	// domainInfo := getSugInfo()
+	// domain, _ := ioutil.ReadFile(utils.GetAppHome() + string(os.PathSeparator) + "domain.json")
+	// ddata := []prompt.Suggest{}
+	// _ = json.Unmarshal([]byte(domain), &ddata)
+
+	// for _, value := range ddata {
+	// 	p := prompt.Suggest{Text: value.Text, Description: value.Description}
+	// 	DomainSug = domainInfo(p)
+	// 	// fmt.Println("Product Id: ", value.Text)
+	// 	// fmt.Println("Quantity: ", value.Description)
+	// }
+
+	// file, _ := json.MarshalIndent(GmailSug, "", " ")
+	// _ = ioutil.WriteFile(utils.GetAppHome()+pthSep+"mail.json", file, 0644)
+
+	// file2, _ := json.MarshalIndent(DomainSug, "", " ")
+	// _ = ioutil.WriteFile(utils.GetAppHome()+pthSep+"doman.json", file2, 0644)
+	// var permisn *drive.Permission = new(drive.Permission)
+	// permisn.EmailAddress = ""//"zhangroley@gmail.com"
+	// permisn.Role = "writer"
+	// permisn.Type = "domain"//"user"
+	// permisn.Domain = "www.roleyzhang.com"
+
+	// permision, err := utils.StartSrv(drive.DriveScope).
+	// 	Permissions.Create("1HDsJ0dWyP7_PFTV7dNHlS_j5L_Fid65bL63j6O-Rn5U", permisn).Do()
+
+	// if err != nil{
+	// 	glog.Errorf("Unable to create share item: %v", err)
+	// }
+
+	// glog.V(8).Infof("ID: %s\n Role: %s\n Email: %s\n DisplayName: %s\n Domain: %s\n Type: %s\n",
+	// 	permision.Id, permision.Role, permision.EmailAddress, permision.DisplayName, permision.Domain, permision.Type)
+
+	// item, err := utils.StartSrv(drive.DriveScope).Permissions.
+	// 	List("0B4_B23yaHaiYVkVlcGpOTl9WZVU").Do()
+
+	// // 0B4_B23yaHaiYdk9uNWVYRlE3UkE
+	// // 1wbmcPMimOknB5D4eQ9QuS6bXuFGlZ2B-
+
+	// // 15b0-LD0DwN4Z7zs08ClVuHwCojcPUgKP
+	// // 0B4_B23yaHaiYVkVlcGpOTl9WZVU
+	// // Files.Get(id).
+	// // // Files.Get("root").
+	// // Fields("id, name, mimeType, parents, owners, createdTime").
+	// // Do()
+	// if err != nil {
+	// 	println("shit happened: ", err.Error())
+	// 	glog.Errorf("Unable to get share info: %v", err)
+	// 	// return nil
+	// }
+	// for _, value := range item.Permissions {
+	// 	glog.V(8).Infof("ID: %s\n allowDiscovery: %t\n displayName: %s\n domain: %s\n email: %s\n  expirationTime: %s\n  role: %s\n  type: %s\n",
+	// 		value.Id, value.AllowFileDiscovery, value.DisplayName, value.Domain, value.EmailAddress, value.ExpirationTime, value.Role, value.Type)
+	// 	for _, valu := range value.PermissionDetails {
+	// 		glog.V(8).Infof("role: %s\n Inherited: %t\n PermissionType: %s\n InheritedFrom: %s\n",
+	// 			valu.Role, valu.Inherited, valu.PermissionType, valu.InheritedFrom)
+	// 	}
+	// }
 }
 
 // func Lo() {

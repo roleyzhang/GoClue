@@ -29,6 +29,7 @@ import (
 	"github.com/roleyzhang/GoClue/utils"
 	"github.com/theckman/yacspin"
 	// "github.com/roleyzhang/GoClue/utils"
+	"reflect"
 )
 
 func main() {
@@ -115,6 +116,11 @@ func completer(in prompt.Document) []prompt.Suggest {
 	idfileSug = cmd.IdfileSug
 	iddirSug = cmd.IddirSug
 	idallSug = cmd.IdAllSug
+	typesSug = cmd.TypesSug
+	roleSug = cmd.RoleSug
+	gmailSug = cmd.GmailSug
+	domainSug = cmd.DomainSug
+
 	arrCommandStr := strings.Fields(in.TextBeforeCursor())
 
 	// fmt.Println("Your input: ",len(arrCommandStr) ,in.TextBeforeCursor())
@@ -135,6 +141,8 @@ func completer(in prompt.Document) []prompt.Suggest {
 			{Text: "d", Description: "Download files use full path as save path and use \">\" Separate source and target"},
 			{Text: "dd", Description: "Download files or directory by id use full path as save path and use \">\" Separate source and target"},
 			{Text: "ls", Description: "list contents "},
+			{Text: "share", Description: "share file/folder"},
+			{Text: "shared", Description: "share file/folder by ID"},
 			{Text: "u", Description: "Upload directory or file, use \"-r\" for upload directory"},
 			{Text: "h", Description: "Print help"},
 			{Text: "n", Description: "Next page"},
@@ -195,6 +203,14 @@ func completer(in prompt.Document) []prompt.Suggest {
 			if iddirSug != nil {
 				s = *iddirSug
 			}
+		case "share":
+			if allSug != nil {
+				s = *allSug
+			}
+		case "shared":
+			if idallSug != nil {
+				s = *idallSug
+			}
 		}
 	}
 	if len(in.TextBeforeCursor()) >= 2 && len(arrCommandStr) > 0 {
@@ -246,6 +262,13 @@ func completer(in prompt.Document) []prompt.Suggest {
 			if allSug != nil {
 				s = *allSug
 			}
+		case "share", "shared":
+			if arrCommandStr[1] != "" {
+				// fmt.Println("typesSug: ", len(*typesSug))
+				if typesSug != nil {
+					s = *typesSug
+				}
+			}
 		}
 		switch arrCommandStr[1] {
 		case "-t", "--t":
@@ -291,7 +314,33 @@ func completer(in prompt.Document) []prompt.Suggest {
 			}
 			if strings.Contains(arrCommandStr[0], "d") {
 				s = *iddirSug
+			}
+		}
+	}
 
+	if len(arrCommandStr) >= 3 {
+		switch arrCommandStr[0] {
+		case "share", "shared":
+			if roleSug != nil {
+				s = *roleSug
+			}
+		}
+	}
+	if len(arrCommandStr) >= 4 {
+		switch arrCommandStr[0] {
+		case "share", "shared":
+			// fmt.Println("typesSug: ", len(*gmailSug))
+			if gmailSug != nil {
+				s = *gmailSug
+			}
+		}
+	}
+	if len(arrCommandStr) >= 5 {
+		switch arrCommandStr[0] {
+		case "share", "shared":
+			// fmt.Println("typesSug22: ", len(*domainSug))
+			if domainSug != nil {
+				s = *domainSug
 			}
 		}
 	}
@@ -326,6 +375,10 @@ var allSug *[]prompt.Suggest
 var idfileSug *[]prompt.Suggest
 var iddirSug *[]prompt.Suggest
 var idallSug *[]prompt.Suggest
+var typesSug *[]prompt.Suggest
+var roleSug *[]prompt.Suggest
+var gmailSug *[]prompt.Suggest
+var domainSug *[]prompt.Suggest
 var colorRed string
 var cfg *yacspin.Config
 
@@ -424,6 +477,15 @@ func runCommand(commandStr string) {
 	if len(arrCommandStr) > 0 {
 		switch arrCommandStr[0] {
 		case "q":
+			gs := reflect.ValueOf(gmailSug)
+			ds := reflect.ValueOf(domainSug)
+			// glog.V(8).Info(gs.IsNil()," : ",ds.IsNil())
+			if !gs.IsNil() && !ds.IsNil() {
+				if len(*gmailSug) > 0 && len(*domainSug) > 0 {
+					utils.SaveProperty("mail", gmailSug)
+					utils.SaveProperty("domain", domainSug)
+				}
+			}
 			os.Exit(0)
 		case "lo":
 			cmd.Lo()
@@ -444,18 +506,14 @@ func runCommand(commandStr string) {
 			// }
 
 		case "mkdir":
-			println("this is mkdir")
 			if _, err := ii.CreateDir(arrCommandStr[1]); err != nil {
 				glog.Error("Can not create folder" + err.Error())
 			}
 			cmd.Ps.SetPrefix("")
 		case "cd":
-			// println("this is cd")
-			// ii.getNode(arrCommandStr[1])
 			ii.GetNode(commandStr)
 			cmd.Ps.SetPrefix("")
 		case "cdd":
-			// println("this is cd")
 			ii.GetNoded(arrCommandStr[1])
 			cmd.Ps.SetPrefix("")
 		case "mv":
@@ -499,7 +557,6 @@ func runCommand(commandStr string) {
 						glog.Error("Can not delete file" + err.Error())
 					}
 				}
-
 			}
 			cmd.Ps.SetPrefix("")
 		case "rmd":
@@ -552,6 +609,32 @@ func runCommand(commandStr string) {
 			pageToken = page[counter]
 			previous(counter)
 			cmd.Ps.SetPrefix("- Page " + strconv.Itoa(counter))
+		case "share":
+			var domain string
+			if len(arrCommandStr) < 5 {
+				alert := fmt.Sprint(Red("Command incomplete"))
+				fmt.Println(alert)
+				return
+			} else if len(arrCommandStr) == 5 {
+				domain = ""
+			} else {
+				domain = arrCommandStr[5]
+			}
+			ii.Share(arrCommandStr[1], arrCommandStr[2], arrCommandStr[3], arrCommandStr[4], domain, true)
+			cmd.Ps.SetPrefix("")
+		case "shared":
+			var domain string
+			if len(arrCommandStr) < 5 {
+				alert := fmt.Sprint(Red("Command incomplete"))
+				fmt.Println(alert)
+				return
+			} else if len(arrCommandStr) == 5 {
+				domain = ""
+			} else {
+				domain = arrCommandStr[5]
+			}
+			ii.Share(arrCommandStr[1], arrCommandStr[2], arrCommandStr[3], arrCommandStr[4], domain, false)
+			cmd.Ps.SetPrefix("")
 		default:
 			fmt.Printf(string(colorRed), "Please check your input or type \"h\" get help")
 			cmd.Ps.SetPrefix("")

@@ -36,6 +36,66 @@ import (
 // 		return files
 // 	}
 // }
+// generate prompt suggest for floder
+func GetSugInfo() func(folder prompt.Suggest) *[]prompt.Suggest {
+	a := make([]prompt.Suggest, 0)
+	return func(folder prompt.Suggest) *[]prompt.Suggest {
+		a = append(a, folder)
+		return &a
+	}
+}
+
+func LoadproSugg(fileName string) *[]prompt.Suggest{
+	sug := GetSugInfo()
+	var ssug *[]prompt.Suggest
+	mail, err := ioutil.ReadFile(GetAppHome() + string(os.PathSeparator) + fileName)
+	if err != nil{
+		glog.V(5).Info(err.Error())
+		p := prompt.Suggest{Text: "", Description: ""}
+		ssug = sug(p)
+		return ssug
+	}
+	mdata := []prompt.Suggest{}
+	err = json.Unmarshal([]byte(mail), &mdata)
+	if err != nil{
+		// glog.Warning(err.Error())
+		glog.V(5).Info(err.Error())
+		p := prompt.Suggest{Text: "", Description: ""}
+		ssug = sug(p)
+		return ssug
+	}
+	for _, value := range mdata {
+		p := prompt.Suggest{Text: value.Text, Description: value.Description}
+		ssug = sug(p)
+	}
+
+	return ssug
+}
+
+func SaveProperty(name string, v interface{} ){
+	file, err := json.MarshalIndent(v, "", " ")
+	if err != nil{
+		glog.Error("JSON Marshal error: ", err.Error())
+	}
+	err = ioutil.WriteFile(GetAppHome()+string(os.PathSeparator)+name+".json", file, 0644)
+	if err != nil{
+		glog.Error("Write File error: ", err.Error())
+	}
+}
+
+func GetAppHome() string{
+	home, _ :=os.UserHomeDir()
+	path := fmt.Sprint(home,string(os.PathSeparator),".local",string(os.PathSeparator),"goclue")
+	glog.V(8).Info(path)
+	if !Exists(path){
+		glog.V(8).Info(path, " Not exist")
+		if err := os.MkdirAll(path, 0755); err != nil{
+			glog.Error("Create app folder failed: ", err.Error())
+			return ""
+		}
+	}
+	return path
+}
 
 // determine array contain string
 func IsContain(items []prompt.Suggest , item string) bool {
@@ -162,7 +222,7 @@ func getClient(config *oauth2.Config) *http.Client {
 	// The file token.json stores the user's access and refresh tokens, and is
 	// created automatically when the authorization flow completes for the first
 	// time.
-	tokFile := "token.json"
+	tokFile := GetAppHome()+string(os.PathSeparator)+"token.json"
 	tok, err := tokenFromFile(tokFile)
 	if err != nil {
 		tok = getTokenFromWeb(config)
