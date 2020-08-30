@@ -29,6 +29,7 @@ import (
 	"github.com/roleyzhang/GoClue/utils"
 	"github.com/theckman/yacspin"
 	// "github.com/roleyzhang/GoClue/utils"
+	"bufio"
 	"reflect"
 )
 
@@ -37,9 +38,6 @@ func main() {
 	defer glog.Flush()
 	// glog.V(8).Info("Level 8 log")
 	// glog.V(5).Info("Level 5 log")
-
-	// fmt.Printf("%s\n%s\n", "GoClue is a cloud disk console client.",
-	// 	"Type \"login\" to sign up or \"h\" to get more help:")
 	p := prompt.New(
 		executor,
 		completer,
@@ -49,6 +47,35 @@ func main() {
 		prompt.OptionTitle("GOCULE"),
 	)
 	p.Run()
+
+	// }else{
+	// 	msg := fmt.Sprint(Brown("Please input Credentials.json file path"))
+	// 	reader := bufio.NewReader(os.Stdin)
+	// 	for {
+	// 		fmt.Print("> ")
+	// 		cmdString, err := reader.ReadString('\n')
+	// 		if err != nil {
+	// 			fmt.Fprintln(os.Stderr, err)
+	// 		}
+
+	// 		runCommand(cmdString)
+	// 		// err = runCommand(cmdString)
+	// 		// if err != nil {
+	// 		// 	fmt.Fprintln(os.Stderr, err)
+	// 		// }
+
+	// 		// fmt.Println("Guess my favorite color:")
+	// 		// if _, err := fmt.Scanf("%s", &guessColor); err != nil {
+	// 		// 	fmt.Printf("%s\n", err)
+	// 		// 	return
+	// 		// }
+	// 		// if favColor == guessColor {
+	// 		// 	fmt.Printf("%q is my favorite color!", favColor)
+	// 		// 	return
+	// 		// }
+	// 		// fmt.Printf("Sorry, %q is not my favorite color. Guess again. \n", guessColor)
+	// 	}
+	// }
 
 	// err := flag.Lookup("logtostderr").Value.Set("true")
 	// if err != nil{
@@ -120,7 +147,8 @@ func completer(in prompt.Document) []prompt.Suggest {
 	roleSug = cmd.RoleSug
 	gmailSug = cmd.GmailSug
 	domainSug = cmd.DomainSug
-
+	commentSug = cmd.CommentSug
+	cmtListSug = cmd.CmtListSug
 	arrCommandStr := strings.Fields(in.TextBeforeCursor())
 
 	// fmt.Println("Your input: ",len(arrCommandStr) ,in.TextBeforeCursor())
@@ -143,6 +171,8 @@ func completer(in prompt.Document) []prompt.Suggest {
 			{Text: "ls", Description: "list contents "},
 			{Text: "share", Description: "share file/folder"},
 			{Text: "shared", Description: "share file/folder by ID"},
+			{Text: "comment", Description: "comment file/folder"},
+			{Text: "commentd", Description: "commnet file/folder by ID"},
 			{Text: "u", Description: "Upload directory or file, use \"-r\" for upload directory"},
 			{Text: "h", Description: "Print help"},
 			{Text: "n", Description: "Next page"},
@@ -211,6 +241,14 @@ func completer(in prompt.Document) []prompt.Suggest {
 			if idallSug != nil {
 				s = *idallSug
 			}
+		case "comment":
+				if allSug != nil {
+					s = *allSug
+				}
+		case "commentd":
+				if idallSug != nil {
+					s = *idallSug
+				}
 		}
 	}
 	if len(in.TextBeforeCursor()) >= 2 && len(arrCommandStr) > 0 {
@@ -269,6 +307,13 @@ func completer(in prompt.Document) []prompt.Suggest {
 					s = *typesSug
 				}
 			}
+		case "comment", "commentd":
+			if arrCommandStr[1] != "" {
+				if commentSug != nil {
+					s = *commentSug
+				}
+			}
+
 		}
 		switch arrCommandStr[1] {
 		case "-t", "--t":
@@ -302,7 +347,7 @@ func completer(in prompt.Document) []prompt.Suggest {
 				{Text: "application/vnd.google-apps.site", Description: " Google Sites"},
 				{Text: "application/vnd.google-apps.unknown", Description: " unknown file type"},
 				{Text: "application/x-shockwave-flash", Description: " Flash"},
-				{Text: "appt", Description: " list starred folder"},
+				{Text: "apt", Description: " list starred folder"},
 			}
 		case "-dir", "--dir":
 			if dirSug != nil {
@@ -323,6 +368,12 @@ func completer(in prompt.Document) []prompt.Suggest {
 		case "share", "shared":
 			if roleSug != nil {
 				s = *roleSug
+			}
+		case "comment", "commentd":
+			if arrCommandStr[2] == "-d" || arrCommandStr[2] == "-u" || arrCommandStr[2] == "-g" {
+				if cmtListSug != nil {
+					s = *cmtListSug
+				}
 			}
 		}
 	}
@@ -379,12 +430,52 @@ var typesSug *[]prompt.Suggest
 var roleSug *[]prompt.Suggest
 var gmailSug *[]prompt.Suggest
 var domainSug *[]prompt.Suggest
+var commentSug *[]prompt.Suggest
+var cmtListSug *[]prompt.Suggest
+
 var colorRed string
 var cfg *yacspin.Config
+var credentialsPath string
 
 var ii cmd.ItemInfo
 
 func init() {
+	utils.CheckCredentials(waitting, start)
+	// 	start()
+	// } else {
+	// 	utils.Check(to, waitting, start)
+	// }
+}
+
+func waitting() {
+	msg := fmt.Sprint(Brown("Please input credentials.json file path"))
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Printf("%s\n", msg)
+	//-----------------------Checking credentials
+	for {
+		fmt.Print("> ")
+		cmdString, err := reader.ReadString('\n')
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+		}
+		credentialsPath = strings.TrimRight(cmdString, "\n")
+
+		home, _ := os.UserHomeDir()
+		to := fmt.Sprint(home, string(os.PathSeparator),
+			".local", string(os.PathSeparator),
+			"goclue", string(os.PathSeparator),
+			"credentials.json")
+		if utils.Movefile(credentialsPath, to) {
+			// fmt.Println("Guess my favorite color:",credentialsPath)
+			start()
+			return
+		} else {
+			msg := fmt.Sprint(Red("There is no credentials.json file"))
+			fmt.Printf("%s\n", msg)
+		}
+	}
+}
+func start() {
 	//-----yacspin-----------------
 	cfg = &yacspin.Config{
 		Frequency: 300 * time.Millisecond,
@@ -462,11 +553,11 @@ func init() {
 	cmd.PathGenerate("HOME", "5")
 	cmd.PathFileGenerate("HOME", "3")
 
-	ii = cmd.Ii
-	cmd.Ps.GetRoot(&ii)
 	if err := spinner.Stop(); err != nil {
 		glog.Errorf("Spinner err: %v", err)
 	}
+	ii = cmd.Ii
+	cmd.Ps.GetRoot(&ii)
 }
 
 // run the command which input by user
@@ -634,6 +725,24 @@ func runCommand(commandStr string) {
 				domain = arrCommandStr[5]
 			}
 			ii.Share(arrCommandStr[1], arrCommandStr[2], arrCommandStr[3], arrCommandStr[4], domain, false)
+			cmd.Ps.SetPrefix("")
+		case "comment":
+			if arrCommandStr[2] == "-l" ||  arrCommandStr[2] == "-g"{
+				ii.Commnet(arrCommandStr[1], arrCommandStr[2], "","", true)
+			}else if arrCommandStr[2] == "-u" {
+				ii.Commnet(arrCommandStr[1], arrCommandStr[2], arrCommandStr[3], arrCommandStr[4], true)
+			}else{
+				ii.Commnet(arrCommandStr[1], arrCommandStr[2], arrCommandStr[3],"", true)
+			}
+			cmd.Ps.SetPrefix("")
+		case "commentd":
+			if arrCommandStr[2] == "-l" ||  arrCommandStr[2] == "-g"{
+				ii.Commnet(arrCommandStr[1], arrCommandStr[2], "","", false)
+			}else if arrCommandStr[2] == "-u" {
+				ii.Commnet(arrCommandStr[1], arrCommandStr[2], arrCommandStr[3], arrCommandStr[4], false)
+			}else{
+				ii.Commnet(arrCommandStr[1], arrCommandStr[2], arrCommandStr[3],"", false)
+			}
 			cmd.Ps.SetPrefix("")
 		default:
 			fmt.Printf(string(colorRed), "Please check your input or type \"h\" get help")

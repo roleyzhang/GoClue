@@ -48,6 +48,8 @@ var TypesSug *[]prompt.Suggest
 var RoleSug *[]prompt.Suggest
 var GmailSug *[]prompt.Suggest
 var DomainSug *[]prompt.Suggest
+var CommentSug *[]prompt.Suggest
+var CmtListSug *[]prompt.Suggest
 
 var cfg *yacspin.Config
 var pthSep string
@@ -102,6 +104,15 @@ func init() {
 		{Text: "reader", Description: "defines what users can do with a file or folder"},
 	}
 	RoleSug = &roles
+
+	comment := []prompt.Suggest{
+		{Text: "-c", Description: "create comment"},
+		{Text: "-d", Description: "delete comment"},
+		{Text: "-u", Description: "update comment"},
+		{Text: "-l", Description: "list comment"},
+		{Text: "-g", Description: "get comment"},
+	}
+	CommentSug = &comment
 
 	GmailSug = utils.LoadproSugg("mail.json")
 	DomainSug = utils.LoadproSugg("domain.json")
@@ -258,9 +269,7 @@ func (ps *PromptStyle) GetRoot(ii *ItemInfo) {
 		Fields("id, name, mimeType").
 		Do()
 	if err != nil {
-		// glog.("shit happened: ", err.Error())
 		glog.Errorf("Unable to retrieve root: %v", err)
-		// return nil
 	}
 	if item.MimeType == "application/vnd.google-apps.folder" {
 		ii.Path[item.Id] = item.Name
@@ -1615,7 +1624,6 @@ func (ii *ItemInfo) UpLod(file, scope string) {
 	}
 }
 
-//------------------------------TESTING BELOW
 func (ii *ItemInfo) Share(idorName, types, role, gmail, domain string, isByName bool) {
 	// If the type is user or group, provide an emailAddress. If the type is domain, provide a domain.
 	// Type : user, group, domain, anyone - all are small letter
@@ -1697,9 +1705,208 @@ func (ii *ItemInfo) Share(idorName, types, role, gmail, domain string, isByName 
 	}
 }
 
+func (ii *ItemInfo) Commnet(idorName, subcommand, content, updContent string, isByName bool) {
+	cmtInfo := utils.GetSugInfo()
+	//-----yacspin-----------------
+	spinner, err := yacspin.New(*cfg)
+	if err != nil {
+		glog.Error("Spin run error", err.Error())
+	}
+	if err := spinner.Frequency(100 * time.Millisecond); err != nil {
+		glog.Error("Spin run error", err.Error())
+	}
+	// msg := fmt.Sprintf("   Getting %s information from server", id)
+	// spinner.Suffix(msg)
+	// msgs := fmt.Sprintf("...Comment %s %s ", idorName, Brown("done"))
+	// spinner.StopMessage(msgs)
+	err = spinner.CharSet(yacspin.CharSets[29])
+	// handle the error
+	if err != nil {
+		glog.V(8).Info("Spin run error", err.Error())
+	}
+
+	if err := spinner.Start(); err != nil {
+		glog.V(8).Info("Spin start error", err.Error())
+		// glog.Errorf("Spin start error %v", err)
+		// return err
+	}
+	//-----yacspin-----------------
+	//-----name to id--------------
+	var id string
+	if isByName {
+		iD, err := ii.getSugId(DirSug, strings.TrimSuffix(idorName, " "))
+		if err != nil {
+			spinner.StopFailMessage("   File or dir not exist, maybe file/folder name include space, try shared command by file/folder ID")
+			if err := spinner.StopFail(); err != nil {
+				glog.V(8).Info(" File or dir not exist", err)
+			}
+			glog.Errorln("file or dir not exist: ", err.Error())
+			return
+		}
+		id = iD
+	} else {
+		id = idorName
+	}
+	//-----name to id--------------
+	var comment *drive.Comment = new(drive.Comment)
+	comment.Content = content
+	switch subcommand {
+	case "-c", "--c":
+		cmt, errs := utils.StartSrv(drive.DriveScope).Comments.
+			Create(id, comment).Fields("*").Do()
+
+		if errs != nil {
+			spinner.StopFailMessage("   Unable to comment item")
+			if err := spinner.StopFail(); err != nil {
+				glog.V(8).Info(" Unable to comment item", err)
+			}
+			glog.Errorf("Unable to comment item: %v", errs)
+		}
+		// glog.V(8).Info("commentid: ",cmt.Id, " : ", cmt.Content)
+		msgs := fmt.Sprintf("...Create Comment %s %s ", cmt.Content , Brown("done"))
+		spinner.StopMessage(msgs)
+	case "-d", "--d":
+		errs := utils.StartSrv(drive.DriveScope).Comments.
+			Delete(id, content).Fields("*").Do()
+
+		if errs != nil {
+			spinner.StopFailMessage("   Unable to delete comment item")
+			if err := spinner.StopFail(); err != nil {
+				glog.V(8).Info(" Unable to delete comment item", err)
+			}
+			glog.Errorf("Unable to delete comment item: %v", errs)
+		}
+		msgs := fmt.Sprintf("...Delete Comment %s %s ", content, Brown("done"))
+		spinner.StopMessage(msgs)
+	case "-u", "--u":
+		var comment *drive.Comment = new(drive.Comment)
+		comment.Content = updContent
+		_, errs := utils.StartSrv(drive.DriveScope).Comments.
+			Update(id, content, comment ).Fields("*").Do()
+
+		if errs != nil {
+			spinner.StopFailMessage("   Unable to comment item")
+			if err := spinner.StopFail(); err != nil {
+				glog.V(8).Info(" Unable to comment item", err)
+			}
+			glog.Errorf("Unable to comment item: %v", errs)
+		}
+		msgs := fmt.Sprintf("...Comment %s %s ", content, Brown("update done"))
+		spinner.StopMessage(msgs)
+	case "-l", "--l":
+		cmt, errs := utils.StartSrv(drive.DriveScope).Comments.List(id).PageSize(100).Fields("*").Do()
+		for _, value := range cmt.Comments{
+			v := fmt.Sprintf("Comment ID: %s  Content: %s\n", Brown(value.Id), Brown(value.Content))
+			fmt.Println(v)
+			s := prompt.Suggest{Text: value.Id, Description: value.Content}
+			CmtListSug = cmtInfo(s)	
+		}
+		if errs != nil {
+			spinner.StopFailMessage("   Unable to list item comment")
+			if err := spinner.StopFail(); err != nil {
+				glog.V(8).Info(" Unable to list item comment", err)
+			}
+			glog.Errorf("Unable to list item comment: %v", errs)
+		}
+		msgs := fmt.Sprintf("...Comment %s %s ", id, Brown("list done"))
+		spinner.StopMessage(msgs)
+	case "-g", "--g":
+		cmt , errs := utils.StartSrv(drive.DriveScope).Comments.Get(id, content).Fields("*").Do()
+
+		v := fmt.Sprintf("Comment ID: %s  Content: %s\n", Brown(cmt.Id), Brown(cmt.Content))
+		fmt.Println(v)
+		if errs != nil {
+			spinner.StopFailMessage("   Unable to get item comment")
+			if err := spinner.StopFail(); err != nil {
+				glog.V(8).Info(" Unable to get item comment", err)
+			}
+			glog.Errorf("Unable to get item comment: %v", errs)
+		}
+		msgs := fmt.Sprintf("...Comment %s %s ", "detail ", Brown("list done"))
+		spinner.StopMessage(msgs)
+	}
+
+	if err := spinner.Stop(); err != nil {
+		glog.Errorf("Spinner err: %v", err)
+	}
+}
+
+//------------------------------TESTING BELOW
+
+// func start(){
+// 	glog.V(8).Info("this is start")
+// }
+
+// func fail(){
+// 	glog.V(8).Info("this is fail")
+// }
+// func success(){
+// 	glog.V(8).Info("this is success")
+// }
 func Lo() {
+	// comment
+	// //-----yacspin-----------------
+	// spinner, err := yacspin.New(*cfg)
+	// if err != nil {
+	// 	glog.Error("Spin run error", err.Error())
+	// }
+	// if err := spinner.Frequency(100 * time.Millisecond); err != nil {
+	// 	glog.Error("Spin run error", err.Error())
+	// }
+	// // msg := fmt.Sprintf("   Getting %s information from server", id)
+	// // spinner.Suffix(msg)
+	// msgs := fmt.Sprintf("...Share %s %s ", idorName, Brown("done"))
+	// spinner.StopMessage(msgs)
+	// err = spinner.CharSet(yacspin.CharSets[29])
+	// // handle the error
+	// if err != nil {
+	// 	glog.V(8).Info("Spin run error", err.Error())
+	// }
+
+	// if err := spinner.Start(); err != nil {
+	// 	glog.V(8).Info("Spin start error", err.Error())
+	// 	// glog.Errorf("Spin start error %v", err)
+	// 	// return err
+	// }
+	// //-----yacspin-----------------
+	// //-----name to id--------------
+	// var id string
+	// if isByName {
+	// 	iD, err := ii.getSugId(DirSug, strings.TrimSuffix(idorName, " "))
+	// 	if err != nil {
+	// 		spinner.StopFailMessage("   File or dir not exist, maybe file/folder name include space, try shared command by file/folder ID")
+	// 		if err := spinner.StopFail(); err != nil {
+	// 			glog.V(8).Info(" File or dir not exist", err)
+	// 		}
+	// 		glog.Errorln("file or dir not exist: ", err.Error())
+	// 		return
+	// 	}
+	// 	id = iD
+	// } else {
+	// 	id = idorName
+	// }
+	// //-----name to id--------------
+	// var comment *drive.Comment = new(drive.Comment)
+	// comment.Content = " testeinhsdaasdzxjjk回调函数"
+	// _, errs := utils.StartSrv(drive.DriveScope).Comments.Create("", comment).Do()
+
+	// home, _ := os.UserHomeDir()
+	// to := fmt.Sprint(home, string(os.PathSeparator),
+	// 	".local", string(os.PathSeparator),
+	// 	"goclue", string(os.PathSeparator),
+	// 	"credentials.json")
+	// if utils.CheckCredentials(fail, success){
+	// 	start()
+	// }else{
+	// 	utils.Movefile("/home/roley/credentials.json", to, fail, success)
+	// }
+	//1. chenck creadential
+	//2. if true > run init
+	//3. if false > run move function
+	//4. if move ok > callback init
+
 	// DomainSug = domainInfo(prompt.Suggest{Text: "www.roleyzhang.com", Description: ""})
-	glog.V(8).Info(utils.GetAppHome())
+	// glog.V(8).Info(utils.GetAppHome())
 
 	//----Load mail & domain Sug
 	//----mail part

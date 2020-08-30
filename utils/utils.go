@@ -45,11 +45,11 @@ func GetSugInfo() func(folder prompt.Suggest) *[]prompt.Suggest {
 	}
 }
 
-func LoadproSugg(fileName string) *[]prompt.Suggest{
+func LoadproSugg(fileName string) *[]prompt.Suggest {
 	sug := GetSugInfo()
 	var ssug *[]prompt.Suggest
 	mail, err := ioutil.ReadFile(GetAppHome() + string(os.PathSeparator) + fileName)
-	if err != nil{
+	if err != nil {
 		glog.V(5).Info(err.Error())
 		p := prompt.Suggest{Text: "", Description: ""}
 		ssug = sug(p)
@@ -57,7 +57,7 @@ func LoadproSugg(fileName string) *[]prompt.Suggest{
 	}
 	mdata := []prompt.Suggest{}
 	err = json.Unmarshal([]byte(mail), &mdata)
-	if err != nil{
+	if err != nil {
 		// glog.Warning(err.Error())
 		glog.V(5).Info(err.Error())
 		p := prompt.Suggest{Text: "", Description: ""}
@@ -72,24 +72,24 @@ func LoadproSugg(fileName string) *[]prompt.Suggest{
 	return ssug
 }
 
-func SaveProperty(name string, v interface{} ){
+func SaveProperty(name string, v interface{}) {
 	file, err := json.MarshalIndent(v, "", " ")
-	if err != nil{
+	if err != nil {
 		glog.Error("JSON Marshal error: ", err.Error())
 	}
 	err = ioutil.WriteFile(GetAppHome()+string(os.PathSeparator)+name+".json", file, 0644)
-	if err != nil{
+	if err != nil {
 		glog.Error("Write File error: ", err.Error())
 	}
 }
 
-func GetAppHome() string{
-	home, _ :=os.UserHomeDir()
-	path := fmt.Sprint(home,string(os.PathSeparator),".local",string(os.PathSeparator),"goclue")
-	glog.V(8).Info(path)
-	if !Exists(path){
+func GetAppHome() string {
+	home, _ := os.UserHomeDir()
+	path := fmt.Sprint(home, string(os.PathSeparator), ".local", string(os.PathSeparator), "goclue")
+	// glog.V(8).Info(path)
+	if !Exists(path) {
 		glog.V(8).Info(path, " Not exist")
-		if err := os.MkdirAll(path, 0755); err != nil{
+		if err := os.MkdirAll(path, 0755); err != nil {
 			glog.Error("Create app folder failed: ", err.Error())
 			return ""
 		}
@@ -97,8 +97,40 @@ func GetAppHome() string{
 	return path
 }
 
+func CheckCredentials( fail Callback, success Callback) {
+	home, _ := os.UserHomeDir()
+	path := fmt.Sprint(home, string(os.PathSeparator),
+		".local", string(os.PathSeparator),
+		"goclue", string(os.PathSeparator),
+		"credentials.json")
+	// glog.V(8).Info(path)
+	if Exists(path) {
+		success()
+	}else{
+		fail()
+	}
+}
+
+type Callback func()
+
+func Check(path string, fail Callback, success Callback) bool{
+	if Exists(path) {
+		success()
+		return true
+	}else{
+		fail()
+		return false
+	}
+}
+
+func Movefile(from, to string) bool{
+	err := os.Rename(from, to)
+	return err == nil
+	// success()
+}
+
 // determine array contain string
-func IsContain(items []prompt.Suggest , item string) bool {
+func IsContain(items []prompt.Suggest, item string) bool {
 	for _, eachItem := range items {
 		if strings.Contains(eachItem.Text, item) {
 			return true
@@ -107,7 +139,7 @@ func IsContain(items []prompt.Suggest , item string) bool {
 	return false
 }
 
-// Checking linux system commands 
+// Checking linux system commands
 func IsCommandAvailable(name string) bool {
 	cmd := exec.Command("/bin/sh", "-c", "command -v "+name)
 	if err := cmd.Run(); err != nil {
@@ -115,30 +147,31 @@ func IsCommandAvailable(name string) bool {
 	}
 	return true
 }
+
 // Exists reports whether the named file or directory exists.
 func Exists(name string) bool {
-    if _, err := os.Stat(name); err != nil {
-        if os.IsNotExist(err) {
-            return false
-        }
-    }
-    return true
+	if _, err := os.Stat(name); err != nil {
+		if os.IsNotExist(err) {
+			return false
+		}
+	}
+	return true
 }
 
 // checking whether is folder
 func IsDir(path string) bool {
 	// glog.V(8).Info(path)
-    s, err := os.Stat(path)
-    if err != nil {
+	s, err := os.Stat(path)
+	if err != nil {
 		// glog.V(8).Info(err)
-        return false
-    }
-    return s.IsDir()
+		return false
+	}
+	return s.IsDir()
 }
 
 // checking whether is file
 func IsFile(path string) bool {
-    return !IsDir(path)
+	return !IsDir(path)
 }
 
 // clearMap ...
@@ -149,13 +182,14 @@ func ClearDownloadMap(m map[string]string) {
 }
 
 func IncrFiles() func(path, id, file string) map[string]string {
-	var files = make(map[string]string) 
-	return func(path, id, file string) map[string]string  {
+	var files = make(map[string]string)
+	return func(path, id, file string) map[string]string {
 		// files = append(files, path+string(os.PathSeparator)+file)
-		files[id] = path+string(os.PathSeparator)+file
+		files[id] = path + string(os.PathSeparator) + file
 		return files
 	}
 }
+
 var filesFromSrv = IncrFiles()
 
 func GetFilesAndFolders(id, path string) (files map[string]string, folders []string, err error) {
@@ -187,14 +221,14 @@ func GetFilesAndFolders(id, path string) (files map[string]string, folders []str
 			// files = append(files, path+pthSep+file.Name)
 		}
 	}
-	glog.V(8).Info("GetFilesAndFolders end: " ,"fis size: ",len(files)," fods size: ", len(folders))
+	glog.V(8).Info("GetFilesAndFolders end: ", "fis size: ", len(files), " fods size: ", len(folders))
 
 	return files, folders, nil
 }
 
 func StartSrv(scope string) *drive.Service {
 
-	b, err := ioutil.ReadFile("credentials.json")
+	b, err := ioutil.ReadFile(GetAppHome() + string(os.PathSeparator) + "credentials.json")
 	if err != nil {
 		glog.Errorf("Unable to read client secret file: %v", err)
 	}
@@ -222,7 +256,7 @@ func getClient(config *oauth2.Config) *http.Client {
 	// The file token.json stores the user's access and refresh tokens, and is
 	// created automatically when the authorization flow completes for the first
 	// time.
-	tokFile := GetAppHome()+string(os.PathSeparator)+"token.json"
+	tokFile := GetAppHome() + string(os.PathSeparator) + "token.json"
 	tok, err := tokenFromFile(tokFile)
 	if err != nil {
 		tok = getTokenFromWeb(config)
