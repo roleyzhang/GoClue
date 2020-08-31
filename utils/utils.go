@@ -20,6 +20,14 @@ import (
 	"google.golang.org/api/option"
 )
 
+func GetLocalPathInfo() func(prompt prompt.Suggest) *[]prompt.Suggest {
+	// to prevent duplicate id is file or folder id, tp =0 is for file name. tp =1 is for file id
+	a := make([]prompt.Suggest, 0)
+	return func(prompt prompt.Suggest) *[]prompt.Suggest {
+		a = append(a, prompt)
+		return &a
+	}
+}
 // var (
 // // counter int
 // )
@@ -37,14 +45,76 @@ import (
 // 	}
 // }
 // generate prompt suggest for floder
-func GetSugInfo() func(folder prompt.Suggest) *[]prompt.Suggest {
+func GetSugInfo() func(prompt prompt.Suggest, id string, tp int) *[]prompt.Suggest {
+	// to prevent duplicate id is file or folder id, tp =0 is for file name. tp =1 is for file id
 	a := make([]prompt.Suggest, 0)
-	return func(folder prompt.Suggest) *[]prompt.Suggest {
-		a = append(a, folder)
+	c := prompt.Suggest{Text: "", Description: ""}
+	return func(prompt prompt.Suggest, id string, tp int) *[]prompt.Suggest {
+		a = append(a, prompt)
+		// fmt.Printf("metric: %d\n", len(a))
+		//-------delete by id
+		for i, v := range a {
+			if tp == 0 {
+				if v.Description == id {
+					a[i] = a[len(a)-1]
+					a[len(a)-1] = c
+					a = a[:len(a)-1]
+				}
+			}
+			if tp == 1 {
+				if v.Text == id {
+					a[i] = a[len(a)-1]
+					a[len(a)-1] = c
+					a = a[:len(a)-1]
+				}
+			}
+		}
+
+		//-------clean duplicate
+		a = UniquePrompt(a, tp)
+		// fmt.Printf("metric: %d\n", len(a))
 		return &a
 	}
 }
 
+func UniquePrompt(pSlice []prompt.Suggest, tp int) []prompt.Suggest {
+	// to prevent duplicate id is file or folder id, tp =0 is for file name. tp =1 is for file id
+	keys := make(map[string]bool)
+	list := []prompt.Suggest{}
+	if tp == 0 {
+		for _, entry := range pSlice {
+			if _, value := keys[entry.Description]; !value {
+				keys[entry.Description] = true
+				list = append(list, entry)
+			}
+		}
+	}
+	if tp == 1 {
+		for _, entry := range pSlice {
+			if _, value := keys[entry.Text]; !value {
+				keys[entry.Text] = true
+				list = append(list, entry)
+			}
+		}
+
+	}
+	return list
+}
+
+// Unique int slice
+func Unique(intSlice []int) []int {
+	keys := make(map[int]bool)
+	list := []int{}
+	for _, entry := range intSlice {
+		if _, value := keys[entry]; !value {
+			keys[entry] = true
+			list = append(list, entry)
+		}
+	}
+	return list
+}
+
+// for comment function to generate gmail & domain prompt
 func LoadproSugg(fileName string) *[]prompt.Suggest {
 	sug := GetSugInfo()
 	var ssug *[]prompt.Suggest
@@ -52,7 +122,7 @@ func LoadproSugg(fileName string) *[]prompt.Suggest {
 	if err != nil {
 		glog.V(5).Info(err.Error())
 		p := prompt.Suggest{Text: "", Description: ""}
-		ssug = sug(p)
+		ssug = sug(p, "", 0)
 		return ssug
 	}
 	mdata := []prompt.Suggest{}
@@ -61,12 +131,12 @@ func LoadproSugg(fileName string) *[]prompt.Suggest {
 		// glog.Warning(err.Error())
 		glog.V(5).Info(err.Error())
 		p := prompt.Suggest{Text: "", Description: ""}
-		ssug = sug(p)
+		ssug = sug(p, "", 0)
 		return ssug
 	}
 	for _, value := range mdata {
 		p := prompt.Suggest{Text: value.Text, Description: value.Description}
-		ssug = sug(p)
+		ssug = sug(p, "", 0)
 	}
 
 	return ssug
@@ -97,7 +167,7 @@ func GetAppHome() string {
 	return path
 }
 
-func CheckCredentials( fail Callback, success Callback) {
+func CheckCredentials(fail Callback, success Callback) {
 	home, _ := os.UserHomeDir()
 	path := fmt.Sprint(home, string(os.PathSeparator),
 		".local", string(os.PathSeparator),
@@ -106,24 +176,24 @@ func CheckCredentials( fail Callback, success Callback) {
 	// glog.V(8).Info(path)
 	if Exists(path) {
 		success()
-	}else{
+	} else {
 		fail()
 	}
 }
 
 type Callback func()
 
-func Check(path string, fail Callback, success Callback) bool{
+func Check(path string, fail Callback, success Callback) bool {
 	if Exists(path) {
 		success()
 		return true
-	}else{
+	} else {
 		fail()
 		return false
 	}
 }
 
-func Movefile(from, to string) bool{
+func Movefile(from, to string) bool {
 	err := os.Rename(from, to)
 	return err == nil
 	// success()

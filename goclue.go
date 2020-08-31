@@ -137,7 +137,7 @@ func executor(in string) {
 func completer(in prompt.Document) []prompt.Suggest {
 	// cmdStr = strings.TrimSuffix(cmdStr, "\n")
 	dirSug = cmd.DirSug
-	fileSug = cmd.FileSug
+	// fileSug = cmd.FileSug
 	pathSug = cmd.PathSug
 	allSug = cmd.AllSug
 	idfileSug = cmd.IdfileSug
@@ -159,10 +159,10 @@ func completer(in prompt.Document) []prompt.Suggest {
 			{Text: "q", Description: "Quit"},
 			{Text: "login", Description: "Login to your account of net drive"},
 			{Text: "mkdir", Description: "Create directory"},
-			{Text: "rm", Description: "Delete directory or file, use \"-r\" for delete directory"},
-			{Text: "rmd", Description: "Delete directory or file by id, use \"-r\" for delete directory"},
-			{Text: "tr", Description: "Trash directory or file, use \"-r\" for delete directory"},
-			{Text: "trd", Description: "Trash directory or file by id, use \"-r\" for delete directory"},
+			{Text: "rm", Description: "Delete directory or file"},
+			{Text: "rmd", Description: "Delete directory or file by id"},
+			{Text: "tr", Description: "Trash directory or file"},
+			{Text: "trd", Description: "Trash directory or file by id"},
 			{Text: "cd", Description: "change directory"},
 			{Text: "cdd", Description: "change directory by id"},
 			{Text: "mv", Description: "move file or directory, use \">\" Separate source and target"},
@@ -209,12 +209,12 @@ func completer(in prompt.Document) []prompt.Suggest {
 				s = *idallSug
 			}
 		case "tr":
-			if fileSug != nil {
-				s = *fileSug
+			if allSug != nil {
+				s = *allSug
 			}
 		case "trd":
-			if idfileSug != nil {
-				s = *idfileSug
+			if idallSug != nil {
+				s = *idallSug
 			}
 		case "mv":
 			if !utils.IsContain(*allSug, in.GetWordBeforeCursorWithSpace()) {
@@ -242,13 +242,13 @@ func completer(in prompt.Document) []prompt.Suggest {
 				s = *idallSug
 			}
 		case "comment":
-				if allSug != nil {
-					s = *allSug
-				}
+			if allSug != nil {
+				s = *allSug
+			}
 		case "commentd":
-				if idallSug != nil {
-					s = *idallSug
-				}
+			if idallSug != nil {
+				s = *idallSug
+			}
 		}
 	}
 	if len(in.TextBeforeCursor()) >= 2 && len(arrCommandStr) > 0 {
@@ -267,19 +267,11 @@ func completer(in prompt.Document) []prompt.Suggest {
 		}
 	}
 	if len(arrCommandStr) >= 2 {
-		// s = []prompt.Suggest{
-		// 	{Text: "-t", Description: " filter by file type"},
-		// 	{Text: "-n", Description: " list by name"},
-		// 	{Text: "-d", Description: " list all folder"},
-		// 	{Text: "-dir", Description: " list files of folder"},
-		// 	{Text: "-l", Description: " list linked folder"},
-		// 	{Text: "-s", Description: " list starred folder"},
-		// }
 		switch arrCommandStr[0] {
 		case "d":
 			if !utils.IsContain(*pathSug, in.GetWordBeforeCursorWithSpace()) {
 				// fmt.Println("cause u : ", in.GetWordBeforeCursorWithSpace())
-				cmd.PathGenerate(in.GetWordBeforeCursorWithSpace(), "4")
+				cmd.PathFileGenerate(in.GetWordBeforeCursorWithSpace(), "2")
 			}
 			if pathSug != nil {
 				s = *pathSug
@@ -287,7 +279,7 @@ func completer(in prompt.Document) []prompt.Suggest {
 		case "dd":
 			if !utils.IsContain(*pathSug, in.GetWordBeforeCursorWithSpace()) {
 				// fmt.Println("cause u : ", in.GetWordBeforeCursorWithSpace())
-				cmd.PathGenerate(in.GetWordBeforeCursorWithSpace(), "4")
+				cmd.PathFileGenerate(in.GetWordBeforeCursorWithSpace(), "2")
 			}
 			if pathSug != nil {
 				s = *pathSug
@@ -313,7 +305,6 @@ func completer(in prompt.Document) []prompt.Suggest {
 					s = *commentSug
 				}
 			}
-
 		}
 		switch arrCommandStr[1] {
 		case "-t", "--t":
@@ -353,13 +344,13 @@ func completer(in prompt.Document) []prompt.Suggest {
 			if dirSug != nil {
 				s = *dirSug
 			}
-		case "-r":
-			if dirSug != nil {
-				s = *dirSug
-			}
-			if strings.Contains(arrCommandStr[0], "d") {
-				s = *iddirSug
-			}
+		// case "-r":
+		// 	if dirSug != nil {
+		// 		s = *dirSug
+		// 	}
+		// 	if strings.Contains(arrCommandStr[0], "d") {
+		// 		s = *iddirSug
+		// 	}
 		}
 	}
 
@@ -375,6 +366,33 @@ func completer(in prompt.Document) []prompt.Suggest {
 					s = *cmtListSug
 				}
 			}
+		case "u":
+			if !utils.IsContain(*allSug, in.GetWordBeforeCursorWithSpace()) {
+				// fmt.Println("cause u : ", in.GetWordBeforeCursorWithSpace())
+				cmd.PathFileGenerate(in.GetWordBeforeCursorWithSpace(), "4")
+			}
+			if allSug != nil {
+				s = *allSug
+			}
+		case "d":
+			if !utils.IsContain(*allSug, in.GetWordBeforeCursorWithSpace()) {
+				// fmt.Println("cause u : ", in.GetWordBeforeCursorWithSpace())
+				cmd.PathFileGenerate(in.GetWordBeforeCursorWithSpace(), "2")
+			}
+			if allSug != nil {
+				s = *allSug
+			}
+		case "dd":
+			if !utils.IsContain(*allSug, in.GetWordBeforeCursorWithSpace()) {
+				// fmt.Println("cause u : ", in.GetWordBeforeCursorWithSpace())
+				cmd.PathFileGenerate(in.GetWordBeforeCursorWithSpace(), "2")
+			}
+			if allSug != nil {
+				s = *allSug
+			}
+			// if allSug != nil {
+			// 	s = *allSug
+			// }
 		}
 	}
 	if len(arrCommandStr) >= 4 {
@@ -420,7 +438,7 @@ var counter int
 var page map[int]string
 
 var dirSug *[]prompt.Suggest
-var fileSug *[]prompt.Suggest
+// var fileSug *[]prompt.Suggest
 var pathSug *[]prompt.Suggest
 var allSug *[]prompt.Suggest
 var idfileSug *[]prompt.Suggest
@@ -523,10 +541,9 @@ func start() {
 
 	allCommands = []command{
 		{"q", "", "Quit"},
-		{"login", "", "Login to your account of net drive"},
 		{"mkdir", "", "Create directory"},
-		{"rm", "", "Delete directory or file, use \"-r\" for delete directory"},
-		{"rmd", "", "Delete directory or file by id, use \"-r\" for delete directory"},
+		{"rm", "", "Delete directory or file"},
+		{"rmd", "", "Delete directory or file by id"},
 		{"tr", "", "Trash directory or file, use \"-r\" for delete directory"},
 		{"trd", "", "Trash directory or file by id, use \"-r\" for delete directory"},
 		{"cd", "", "change directory"},
@@ -581,106 +598,129 @@ func runCommand(commandStr string) {
 		case "lo":
 			cmd.Lo()
 			// ii.Lo(drive.DriveScope)
-			// service = startSrv()
-			// println("this is login")
-			// files := make([]*drive.File, 0)
-			// dirfiles := cmd.GetAllDriveItems()
-			// cmd.GetAllDriveItems("1IgdB9psWejYSLBxPiuqJ5bBigFFaQEZz", "", &files)
-			// glog.V(8).Info("files len:  ", len(files))
-			// cmd.BufferedChannel()
-			// cmd.Select()
-			// files := make([]string, 0)
-			// cmd.GetLocalItems(arrCommandStr[1], true, &files)
-			// for _, file := range files {
-			// 	home, _ := os.UserHomeDir()
-			// 	fmt.Println(strings.Replace(file, home+string(os.PathSeparator), "", 1), " ---- ", home, "pathSug len", len(*pathSug), "===== ", len(files))
-			// }
 
+			// if len(arrCommandStr[1:]) >0 {
+			// }else{
+			// 	fmt.Printf(string(colorRed), "Command incomplete, please use \"h\" get help")
+			// }
 		case "mkdir":
-			if _, err := ii.CreateDir(arrCommandStr[1]); err != nil {
-				glog.Error("Can not create folder" + err.Error())
+			if len(arrCommandStr[1:]) > 0 {
+				if _, err := ii.CreateDir(arrCommandStr[1]); err != nil {
+					glog.Error("Can not create folder" + err.Error())
+				}
+				cmd.Ps.SetPrefix("")
+			} else {
+				fmt.Printf(string(colorRed), "Command incomplete, please use \"h\" get help")
 			}
-			cmd.Ps.SetPrefix("")
 		case "cd":
-			ii.GetNode(commandStr)
-			cmd.Ps.SetPrefix("")
+			if len(arrCommandStr[1:]) > 0 {
+				ii.GetNode(commandStr)
+				cmd.Ps.SetPrefix("")
+			} else {
+				fmt.Printf(string(colorRed), "Command incomplete, please use \"h\" get help")
+			}
 		case "cdd":
-			ii.GetNoded(arrCommandStr[1])
-			cmd.Ps.SetPrefix("")
+			if len(arrCommandStr[1:]) > 0 {
+				ii.GetNoded(arrCommandStr[1])
+				cmd.Ps.SetPrefix("")
+			} else {
+				fmt.Printf(string(colorRed), "Command incomplete, please use \"h\" get help")
+			}
 		case "mv":
-			if err := ii.Move(commandStr); err != nil {
-				glog.Error("Can not move file" + err.Error())
+			if len(arrCommandStr[1:]) > 0 {
+				if err := ii.Move(commandStr); err != nil {
+					glog.Error("Can not move file" + err.Error())
+				}
+				cmd.Ps.SetPrefix("")
+			} else {
+				fmt.Printf(string(colorRed), "Command incomplete, please use \"h\" get help")
 			}
-			cmd.Ps.SetPrefix("")
 		case "tr":
-			if arrCommandStr[1] == "-r" {
-				if err := ii.Trash(arrCommandStr[2], arrCommandStr[1]); err != nil {
-					glog.Error("Can not delete folder" + err.Error())
+			if len(arrCommandStr[1:]) > 0 {
+				// if arrCommandStr[1] == "-r" {
+				// 	if err := ii.Trash(arrCommandStr[2], arrCommandStr[1]); err != nil {
+				// 		glog.Error("Can not delete folder" + err.Error())
+				// 	}
+				// } else {
+				for _, value := range arrCommandStr[1:] {
+					if err := ii.Trash(value); err != nil {
+						glog.Error("Can not delete file" + err.Error())
+					}
 				}
+				cmd.Ps.SetPrefix("")
 			} else {
-				if err := ii.Trash(arrCommandStr[1], ""); err != nil {
-					glog.Error("Can not delete file" + err.Error())
-				}
+				fmt.Printf(string(colorRed), "Command incomplete, please use \"h\" get help")
 			}
-			cmd.Ps.SetPrefix("")
 		case "trd":
-			if arrCommandStr[1] == "-r" {
-				if err := ii.Trashd(arrCommandStr[2], arrCommandStr[1]); err != nil {
-					glog.Error("Can not delete folder" + err.Error())
+			if len(arrCommandStr[1:]) > 0 {
+				// if arrCommandStr[1] == "-r" {
+				// 	if err := ii.Trashd(arrCommandStr[2], arrCommandStr[1]); err != nil {
+				// 		glog.Error("Can not delete folder" + err.Error())
+				// 	}
+				// } else {
+				for _, value := range arrCommandStr[1:] {
+					if err := ii.Trashd(value); err != nil {
+						glog.Error("Can not delete file" + err.Error())
+					}
 				}
+				cmd.Ps.SetPrefix("")
 			} else {
-				if err := ii.Trashd(arrCommandStr[1], ""); err != nil {
-					glog.Error("Can not delete file" + err.Error())
-				}
+				fmt.Printf(string(colorRed), "Command incomplete, please use \"h\" get help")
 			}
-			cmd.Ps.SetPrefix("")
 		case "rm":
-			glog.V(8).Info(len(arrCommandStr[1:]))
-			for _, value := range arrCommandStr[1:] {
-				if arrCommandStr[1] == "-r" {
-					if err := ii.Rm(value, arrCommandStr[1]); err != nil {
-						// if err := ii.Rm(arrCommandStr[2], arrCommandStr[1]); err != nil {
-						glog.Error("Can not delete folder" + err.Error())
-					}
-				} else {
-					if err := ii.Rm(value, ""); err != nil {
-						// if err := ii.Rm(arrCommandStr[1], ""); err != nil {
+			if len(arrCommandStr[1:]) > 0 {
+				for _, value := range arrCommandStr[1:] {
+					if err := ii.Rm(value); err != nil {
 						glog.Error("Can not delete file" + err.Error())
 					}
 				}
+				cmd.Ps.SetPrefix("")
+			} else {
+				fmt.Printf(string(colorRed), "Command incomplete, please use \"h\" get help")
 			}
-			cmd.Ps.SetPrefix("")
 		case "rmd":
-			for _, value := range arrCommandStr[1:] {
-				if arrCommandStr[1] == "-r" {
-					if err := ii.Rmd(value, arrCommandStr[1]); err != nil {
-						glog.Error("Can not delete folder" + err.Error())
-					}
-				} else {
-					if err := ii.Rmd(value, ""); err != nil {
+			if len(arrCommandStr[1:]) > 0 {
+				for _, value := range arrCommandStr[1:] {
+					if err := ii.Rmd(value); err != nil {
 						glog.Error("Can not delete file" + err.Error())
 					}
 				}
+				cmd.Ps.SetPrefix("")
+			} else {
+				fmt.Printf(string(colorRed), "Command incomplete, please use \"h\" get help")
 			}
-			cmd.Ps.SetPrefix("")
 		case "d":
-			err := ii.Download(commandStr)
-			if err != nil {
-				glog.Errorf("Unable to download files: %v", err.Error())
+			if len(arrCommandStr[1:]) > 0 {
+				err := ii.Download(commandStr)
+				if err != nil {
+					glog.Errorf("Unable to download files: %v", err.Error())
+				}
+				cmd.Ps.SetPrefix("")
+			} else {
+				fmt.Printf(string(colorRed), "Command incomplete, please use \"h\" get help")
 			}
-			cmd.Ps.SetPrefix("")
 		case "dd":
-			err := cmd.Downloadd(arrCommandStr)
-			if err != nil {
-				glog.Errorf("Unable to download files: %v", err.Error())
+			if len(arrCommandStr[1:]) > 0 {
+				err := cmd.Downloadd(arrCommandStr)
+				if err != nil {
+					glog.Errorf("Unable to download files: %v", err.Error())
+				}
+				cmd.Ps.SetPrefix("")
+			} else {
+				fmt.Printf(string(colorRed), "Command incomplete, please use \"h\" get help")
 			}
-			cmd.Ps.SetPrefix("")
 		case "ls":
 			list(arrCommandStr)
 			cmd.Ps.SetPrefix("")
 		case "u":
-			ii.UpLod(commandStr, drive.DriveScope)
-			cmd.Ps.SetPrefix("")
+			if len(arrCommandStr[1:]) > 0 {
+				for _, value := range arrCommandStr[1:] {
+					ii.UpLod(value, drive.DriveScope)
+				}
+				cmd.Ps.SetPrefix("")
+			} else {
+				fmt.Printf(string(colorRed), "Command incomplete, please use \"h\" get help")
+			}
 		case "h":
 			for _, cmd := range allCommands {
 				fmt.Printf("%6s: %s %s \n", cmd.name, cmd.param, cmd.tip)
@@ -703,7 +743,7 @@ func runCommand(commandStr string) {
 		case "share":
 			var domain string
 			if len(arrCommandStr) < 5 {
-				alert := fmt.Sprint(Red("Command incomplete"))
+				alert := fmt.Sprint(Red("Command incomplete, please use \"h\" get help"))
 				fmt.Println(alert)
 				return
 			} else if len(arrCommandStr) == 5 {
@@ -716,7 +756,7 @@ func runCommand(commandStr string) {
 		case "shared":
 			var domain string
 			if len(arrCommandStr) < 5 {
-				alert := fmt.Sprint(Red("Command incomplete"))
+				alert := fmt.Sprint(Red("Command incomplete, please use \"h\" get help"))
 				fmt.Println(alert)
 				return
 			} else if len(arrCommandStr) == 5 {
@@ -727,23 +767,31 @@ func runCommand(commandStr string) {
 			ii.Share(arrCommandStr[1], arrCommandStr[2], arrCommandStr[3], arrCommandStr[4], domain, false)
 			cmd.Ps.SetPrefix("")
 		case "comment":
-			if arrCommandStr[2] == "-l" ||  arrCommandStr[2] == "-g"{
-				ii.Commnet(arrCommandStr[1], arrCommandStr[2], "","", true)
-			}else if arrCommandStr[2] == "-u" {
-				ii.Commnet(arrCommandStr[1], arrCommandStr[2], arrCommandStr[3], arrCommandStr[4], true)
-			}else{
-				ii.Commnet(arrCommandStr[1], arrCommandStr[2], arrCommandStr[3],"", true)
+			if len(arrCommandStr[1:]) > 0 {
+				if arrCommandStr[2] == "-l" || arrCommandStr[2] == "-g" {
+					ii.Commnet(arrCommandStr[1], arrCommandStr[2], "", "", true)
+				} else if arrCommandStr[2] == "-u" {
+					ii.Commnet(arrCommandStr[1], arrCommandStr[2], arrCommandStr[3], arrCommandStr[4], true)
+				} else {
+					ii.Commnet(arrCommandStr[1], arrCommandStr[2], arrCommandStr[3], "", true)
+				}
+				cmd.Ps.SetPrefix("")
+			} else {
+				fmt.Printf(string(colorRed), "Command incomplete, please use \"h\" get help")
 			}
-			cmd.Ps.SetPrefix("")
 		case "commentd":
-			if arrCommandStr[2] == "-l" ||  arrCommandStr[2] == "-g"{
-				ii.Commnet(arrCommandStr[1], arrCommandStr[2], "","", false)
-			}else if arrCommandStr[2] == "-u" {
-				ii.Commnet(arrCommandStr[1], arrCommandStr[2], arrCommandStr[3], arrCommandStr[4], false)
-			}else{
-				ii.Commnet(arrCommandStr[1], arrCommandStr[2], arrCommandStr[3],"", false)
+			if len(arrCommandStr[1:]) > 0 {
+				if arrCommandStr[2] == "-l" || arrCommandStr[2] == "-g" {
+					ii.Commnet(arrCommandStr[1], arrCommandStr[2], "", "", false)
+				} else if arrCommandStr[2] == "-u" {
+					ii.Commnet(arrCommandStr[1], arrCommandStr[2], arrCommandStr[3], arrCommandStr[4], false)
+				} else {
+					ii.Commnet(arrCommandStr[1], arrCommandStr[2], arrCommandStr[3], "", false)
+				}
+				cmd.Ps.SetPrefix("")
+			} else {
+				fmt.Printf(string(colorRed), "Command incomplete, please use \"h\" get help")
 			}
-			cmd.Ps.SetPrefix("")
 		default:
 			fmt.Printf(string(colorRed), "Please check your input or type \"h\" get help")
 			cmd.Ps.SetPrefix("")
