@@ -23,3 +23,11 @@ To enable the Drive API, complete these steps:
     2.1 Reference https://developers.google.com/identity/protocols/oauth2/
     
   3.  Download from github
+    
+    3.1 run  go install -i -gcflags="-N -l" goclue.go
+  
+  4. Enjoy
+  
+  
+
+    
