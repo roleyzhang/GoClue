@@ -5,23 +5,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-
-	// "math/rand"
-	// "flag"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
 	"time"
-
-	// "io/ioutil"
-	// "sync"
-	// "strconv"
 	"github.com/golang/glog"
-
-	// "os/exec"
-	// "encoding/json"
 	"github.com/c-bata/go-prompt"
 	"github.com/cheynewallace/tabby"
 	"github.com/dustin/go-humanize"
@@ -324,17 +314,6 @@ func (ii *ItemInfo) ShowResult(
 	page map[int]string,
 	counter int,
 	param, cmd, scope string) *drive.FileList { // This should testing by change the authorize token
-	// r, err := startSrv("https://www.googleapis.com/auth/drive.photos.readonly").Files.List().
-	// Spaces("drive").
-	// Q("mimeType = 'application/vnd.google-apps.shortcut' or starred").
-	// Q("starred").Q("name='IMG_0004.JPG'").
-	// Q("starred or name='IMG_0004.JPG'").
-	// OrderBy(condition).
-	// Corpora("default").
-	// fmt.Println("Result start: ", page[counter], qString, counter, scope)
-	// colorGreen := "\033[32m%26s  %s\t%s\t%s\t%s\n"
-	// colorCyan := "\033[36m%26s  %s\t%s\t%s\t%s\n"
-
 	//-----yacspin-----------------
 	spinner, err := yacspin.New(*cfg)
 	if err != nil {
@@ -407,10 +386,6 @@ func (ii *ItemInfo) ShowResult(
 		t.AddHeader("NAME", "ID", "TYPE", "OWNER", "CREATED TIME")
 		for _, i := range r.Files {
 			if i.MimeType == "application/vnd.google-apps.folder" {
-				// for _, value := range i.Permissions{
-				// fmt.Println(i.Name, i.Id, i.MimeType,len(i.Permissions), value.EmailAddress, value.Id, value.Role)
-				// fmt.Println(i.Name, i.Id, i.MimeType,len(i.Permissions), i.SharingUser)
-				// }
 				var name string
 				var types string
 				if len(i.Name) > ii.maxLength {
@@ -428,21 +403,13 @@ func (ii *ItemInfo) ShowResult(
 					Bold(Cyan(types)),
 					Bold(Cyan(i.Owners[0].DisplayName)),
 					Bold(Cyan(i.CreatedTime)))
-				// fmt.Printf(string(colorGreen), i.Name, i.Id, i.MimeType, i.Owners[0].DisplayName, i.CreatedTime)
 				s := prompt.Suggest{Text: i.Id, Description: i.Name}
 				s2 := prompt.Suggest{Text: i.Name, Description: i.Id}
 				DirSug = dirInfo(s2, ii.DeleteItemIs, 0)
 				AllSug = allInfo(s2, ii.DeleteItemIs, 0)
 				IddirSug = iddirInfo(s, ii.DeleteItemIs, 1)
 				IdAllSug = idAllInfo(s, ii.DeleteItemIs, 1)
-				// 	s := prompt.Suggest{Text: i.Id, Description: i.Name}
-				// 	dirSug = dirInfo(s)
 			} else {
-				// fmt.Printf(string(colorCyan), i.Name, i.Id, i.MimeType, i.Owners[0].DisplayName, i.Parents, i.CreatedTime)
-				// for _, value := range i.Permissions{
-				// 	fmt.Println(i.Name, i.Id, i.MimeType,len(i.Permissions), value.EmailAddress,value.Id, value.Role)
-				// fmt.Println(i.Name, i.Id, i.MimeType,len(i.Permissions), i.SharingUser)
-				// }
 				var name string
 				var types string
 				if len(i.Name) > ii.maxLength {
@@ -456,11 +423,11 @@ func (ii *ItemInfo) ShowResult(
 					types = strings.Split(i.MimeType, "/")[1]
 				}
 				if i.MimeType == "application/vnd.google-apps.shortcut" {
-					t.AddLine(Gray(name),
-						Gray(i.Id),
-						Gray(types),
-						Gray(i.Owners[0].DisplayName),
-						Gray(i.CreatedTime))
+					t.AddLine(Cyan(name),
+						Cyan(i.Id),
+						Cyan(types),
+						Cyan(i.Owners[0].DisplayName),
+						Cyan(i.CreatedTime))
 
 				} else {
 					t.AddLine(Green(name),
