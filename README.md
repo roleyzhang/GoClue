@@ -27,7 +27,10 @@ To enable the Drive API, complete these steps:
     3.1 run  go install -i -gcflags="-N -l" goclue.go
   
   4. Enjoy
-  
-  
+    ![image](https://github.com/roleyzhang/GoClue/blob/master/img/pic-selected-200831-2255-59.png)
+    ![image](https://github.com/roleyzhang/GoClue/blob/master/img/pic-selected-200831-2257-00.png)
+    ![image](https://github.com/roleyzhang/GoClue/blob/master/img/pic-selected-200831-2300-53.png)
+    ![image](https://github.com/roleyzhang/GoClue/blob/master/img/pic-selected-200831-2301-55.png)
+    ![image](https://github.com/roleyzhang/GoClue/blob/master/img/pic-selected-200831-2251-18.png)
 
     
