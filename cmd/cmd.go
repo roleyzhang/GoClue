@@ -482,13 +482,14 @@ func (ii *ItemInfo) ShowResult(
 	if err := spinner.Stop(); err != nil {
 		glog.Errorf("Spinner err: %v", err)
 	}
+	// fmt.Println("pathlen", len(*PathSug))
 	return r
 }
 
 //  generate folder path...
 func PathGenerate(path, level string) {
 
-	pathInfo := utils.GetSugInfo()
+	pathInfo := utils.GetLocalPathInfo()
 	// home, _ :=os.UserHomeDir()
 	if path == "HOME" {
 		// only list folders
@@ -499,7 +500,7 @@ func PathGenerate(path, level string) {
 		for _, m := range strings.Split(string(output), "\n") {
 			// fmt.Printf("metric: %s\n", m)
 			s := prompt.Suggest{Text: m, Description: ""}
-			PathSug = pathInfo(s, Ii.DeleteItemIs, 0)
+			PathSug = pathInfo(s)
 		}
 
 		// files := make([]string, 0)
@@ -519,7 +520,7 @@ func PathGenerate(path, level string) {
 		for _, m := range strings.Split(string(output), "\n") {
 			// fmt.Printf("metric: %s\n", m)
 			s := prompt.Suggest{Text: m, Description: ""}
-			PathSug = pathInfo(s, Ii.DeleteItemIs, 0)
+			PathSug = pathInfo(s)
 		}
 
 		// files := make([]string, 0)
@@ -531,6 +532,7 @@ func PathGenerate(path, level string) {
 		// }
 	}
 
+	// fmt.Println("pathlen", len(*PathSug))
 }
 
 //  generate folder and file path...
@@ -1398,17 +1400,22 @@ func downld(id, target, filename, mimeType, path string) error {
 }
 
 // download file by name
-func (ii *ItemInfo) Download(cmd string) error {
+func (ii *ItemInfo) Download(path, cmd string) error {
 	//TODO: download file
 
 	//1 transfer file name to id
 	var id string
-	if !strings.Contains(cmd, ">") {
+	// if !strings.Contains(cmd, ">") {
+	// 	fmt.Printf(string(colorRed), "Wrong path format, please use \"h\" get help")
+	// 	return errors.New("Wrong path format, please use \"h\" get help")
+	// }
+	// fil := strings.Split(strings.Split(cmd, "d ")[1], ">")
+	if path == "" || cmd == ""{
 		fmt.Printf(string(colorRed), "Wrong path format, please use \"h\" get help")
 		return errors.New("Wrong path format, please use \"h\" get help")
 	}
-	fil := strings.Split(strings.Split(cmd, "d ")[1], ">")
-	iD, err := ii.getSugId(AllSug, strings.TrimSuffix(fil[0], " "))
+	// iD, err := ii.getSugId(AllSug, strings.TrimSuffix(fil[0], " "))
+	iD, err := ii.getSugId(AllSug, strings.TrimSuffix(cmd, " "))
 	if err != nil {
 		fmt.Printf(string(colorRed), "file or dir not exist: "+err.Error())
 		glog.Errorln("file or dir not exist: " + err.Error())
@@ -1416,13 +1423,13 @@ func (ii *ItemInfo) Download(cmd string) error {
 	}
 	id = iD
 	//2 start download
-	targetPath := strings.Trim(fil[1], " ") + string(os.PathSeparator) + strings.Trim(fil[0], " ")
+	targetPath := strings.Trim(path, " ") + string(os.PathSeparator) + strings.Trim(cmd, " ")
 	StartingDownload(id, targetPath)
 	return nil
 }
 
 // Downloadd file by id
-func Downloadd(cmds []string) error {
+func Downloadd(path, cmd string) error {
 	//TODO: download file by id
 	//1 transfer file name to id
 	//2 check the id whether is file or folder
@@ -1433,13 +1440,17 @@ func Downloadd(cmds []string) error {
 	// 	glog.Errorln("Download failed: ", err.Error())
 	// 	return err
 	// }
-	if len(cmds) < 3 {
-		return errors.New("command line lack param")
-	}
+	// if len(cmds) < 3 {
+	// 	return errors.New("command line lack param")
+	// }
 
+	if path == "" || cmd == ""{
+		fmt.Printf(string(colorRed), "Wrong path format, please input \"h\" get help")
+		return errors.New("Wrong path format, please input \"h\" get help")
+	}
 	item, err := utils.StartSrv(drive.DriveScope).
 		// Files.Get(id).
-		Files.Get(cmds[1]).
+		Files.Get(cmd).
 		Fields("id, name, mimeType").
 		Do()
 	if err != nil {
@@ -1448,11 +1459,11 @@ func Downloadd(cmds []string) error {
 		return err
 	}
 	if item.MimeType == "application/vnd.google-apps.folder" {
-		glog.V(6).Info("B7: ", cmds[2])
-		StartingDownload(cmds[1], cmds[2]+string(os.PathSeparator)+item.Name)
+		glog.V(6).Info("B7: ", path)
+		StartingDownload(cmd, path +string(os.PathSeparator)+item.Name)
 	} else {
-		glog.V(6).Info("B7: ", cmds[2])
-		StartingDownload(cmds[1], cmds[2])
+		glog.V(6).Info("B7: ", path)
+		StartingDownload(cmd, path)
 	}
 	return nil
 }
@@ -1506,17 +1517,6 @@ func generatorDownloader(id, path string, out, stop chan string) {
 			// return err
 		}
 		//-----yacspin-----------------
-		// qString := "'" + id + "' in parents"
-		// qString := "'" + id + "' in parents and trashed=false"
-		// // glog.V(8).Info("B1: ", qString)
-		// item, err := utils.StartSrv(drive.DriveScope).Files.List().
-		// 	Q(qString).PageSize(perPageSize).
-		// 	Fields("nextPageToken, files(id, name, mimeType)").
-		// 	Do()
-		// if err != nil {
-		// 	glog.Errorln("file or dir not exist: ", err.Error())
-		// 	return
-		// }
 		files := make([]*drive.File, 0)
 		GetAllDriveItems(id, "", &files)
 		// glog.V(8).Info("B2: ", item.Files, len(item.Files))
@@ -1997,8 +1997,19 @@ func (ii *ItemInfo) Commnet(idorName, subcommand, content, updContent string, is
 	case "-g", "--g":
 		cmt, errs := utils.StartSrv(drive.DriveScope).Comments.Get(id, content).Fields("*").Do()
 
-		v := fmt.Sprintf("Comment ID: %s  Content: %s\n", Brown(cmt.Id), Brown(cmt.Content))
+		v := fmt.Sprintf("Comment ID: %s  Content: %s  Author: %s  CreatedTime: %s\n",
+			Brown(cmt.Id),
+			Brown(cmt.Content),
+			Brown(cmt.Author.DisplayName),
+			Brown(cmt.CreatedTime))
 		fmt.Println(v)
+			for key, value := range cmt.Replies{
+				v := fmt.Sprintf("Comment ID: %s  Content: %s\n",
+					Brown(key),
+					Brown(value))
+				fmt.Println(v)
+
+			}
 		if errs != nil {
 			spinner.StopFailMessage("   Unable to get item comment")
 			if err := spinner.StopFail(); err != nil {
