@@ -1,43 +1,60 @@
 package main
 
 import (
+	"bufio"
 	"flag"
-
-	"github.com/golang/glog"
-
-	// "encoding/json"
 	"fmt"
-	"time"
-
-	// "io/ioutil"
-	// "log"
-	// "net/http"
 	"os"
-	// "os/exec"
+	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/c-bata/go-prompt"
-
-	// "golang.org/x/net/context"
-	// "golang.org/x/oauth2"
-	// "golang.org/x/oauth2/google"
-	"google.golang.org/api/drive/v3"
-	// "google.golang.org/api/option"
-	. "github.com/logrusorgru/aurora"
+	"github.com/golang/glog"
+	"github.com/logrusorgru/aurora"
 	"github.com/roleyzhang/GoClue/cmd"
 	"github.com/roleyzhang/GoClue/utils"
 	"github.com/theckman/yacspin"
-	// "github.com/roleyzhang/GoClue/utils"
-	"bufio"
-	"reflect"
+	"google.golang.org/api/drive/v3"
 )
+
+//--------------------------------------------
+type command struct {
+	name  string
+	param string
+	tip   string
+}
+
+var allCommands []command
+var pageToken string
+var counter int
+var page map[int]string
+
+var dirSug *[]prompt.Suggest
+
+// var fileSug *[]prompt.Suggest
+var pathSug *[]prompt.Suggest
+var allSug *[]prompt.Suggest
+var idfileSug *[]prompt.Suggest
+var iddirSug *[]prompt.Suggest
+var idallSug *[]prompt.Suggest
+var typesSug *[]prompt.Suggest
+var roleSug *[]prompt.Suggest
+var gmailSug *[]prompt.Suggest
+var domainSug *[]prompt.Suggest
+var commentSug *[]prompt.Suggest
+var cmtListSug *[]prompt.Suggest
+
+var colorRed string
+var cfg *yacspin.Config
+var credentialsPath string
+
+var ii cmd.ItemInfo
 
 func main() {
 	flag.Parse()
 	defer glog.Flush()
-	// glog.V(8).Info("Level 8 log")
-	// glog.V(5).Info("Level 5 log")
 	p := prompt.New(
 		executor,
 		completer,
@@ -48,90 +65,16 @@ func main() {
 	)
 	p.Run()
 
-	// }else{
-	// 	msg := fmt.Sprint(Brown("Please input Credentials.json file path"))
-	// 	reader := bufio.NewReader(os.Stdin)
-	// 	for {
-	// 		fmt.Print("> ")
-	// 		cmdString, err := reader.ReadString('\n')
-	// 		if err != nil {
-	// 			fmt.Fprintln(os.Stderr, err)
-	// 		}
+}
 
-	// 		runCommand(cmdString)
-	// 		// err = runCommand(cmdString)
-	// 		// if err != nil {
-	// 		// 	fmt.Fprintln(os.Stderr, err)
-	// 		// }
-
-	// 		// fmt.Println("Guess my favorite color:")
-	// 		// if _, err := fmt.Scanf("%s", &guessColor); err != nil {
-	// 		// 	fmt.Printf("%s\n", err)
-	// 		// 	return
-	// 		// }
-	// 		// if favColor == guessColor {
-	// 		// 	fmt.Printf("%q is my favorite color!", favColor)
-	// 		// 	return
-	// 		// }
-	// 		// fmt.Printf("Sorry, %q is not my favorite color. Guess again. \n", guessColor)
-	// 	}
-	// }
-
-	// err := flag.Lookup("logtostderr").Value.Set("true")
-	// if err != nil{
-	// 	glog.Error("Console issue")
-	// }
-	// // flag.Lookup("log_dir").Value.Set("/path/to/log/dir")
-	// err = flag.Lookup("v").Value.Set("10")
-	// if err != nil{
-	// 	glog.Error("Console issue")
-	// }
-	//-----------------------THE OLD ONE
-	// fmt.Printf("%s\n%s\n", "GoClue is a cloud disk console client.",
-	// 	"Type \"login\" to sign up or \"h\" to get more help:")
-	// // var guessColor string
-	// // const favColor = "blue"
-	// reader := bufio.NewReader(os.Stdin)
-
-	// for {
-	// 	fmt.Print("> ")
-	// 	cmdString, err := reader.ReadString('\n')
-	// 	if err != nil {
-	// 		fmt.Fprintln(os.Stderr, err)
-	// 	}
-
-	// 	runCommand(cmdString)
-	// 	// err = runCommand(cmdString)
-	// 	// if err != nil {
-	// 	// 	fmt.Fprintln(os.Stderr, err)
-	// 	// }
-
-	// 	// fmt.Println("Guess my favorite color:")
-	// 	// if _, err := fmt.Scanf("%s", &guessColor); err != nil {
-	// 	// 	fmt.Printf("%s\n", err)
-	// 	// 	return
-	// 	// }
-	// 	// if favColor == guessColor {
-	// 	// 	fmt.Printf("%q is my favorite color!", favColor)
-	// 	// 	return
-	// 	// }
-	// 	// fmt.Printf("Sorry, %q is not my favorite color. Guess again. \n", guessColor)
-	// }
-
+func init() {
+	utils.CheckCredentials(waitting, start)
 }
 
 func executor(in string) {
 	runCommand(in)
 	h := prompt.NewHistory()
 	h.Add(in)
-
-	// if in == "" {
-	// 	LivePrefixState.IsEnable = false
-	// 	LivePrefixState.LivePrefix = in
-	// 	return
-	// }
-	// LivePrefixState.LivePrefix = in + ">>> "
-	// LivePrefixState.IsEnable = true
 }
 
 func completer(in prompt.Document) []prompt.Suggest {
@@ -142,7 +85,7 @@ func completer(in prompt.Document) []prompt.Suggest {
 	allSug = cmd.AllSug
 	idfileSug = cmd.IdfileSug
 	iddirSug = cmd.IddirSug
-	idallSug = cmd.IdAllSug
+	idallSug = cmd.IDAllSug
 	typesSug = cmd.TypesSug
 	roleSug = cmd.RoleSug
 	gmailSug = cmd.GmailSug
@@ -151,7 +94,6 @@ func completer(in prompt.Document) []prompt.Suggest {
 	cmtListSug = cmd.CmtListSug
 	arrCommandStr := strings.Fields(in.TextBeforeCursor())
 
-	// fmt.Println("Your input: ",len(arrCommandStr) ,in.TextBeforeCursor())
 	s := []prompt.Suggest{}
 
 	if len(arrCommandStr) >= 0 {
@@ -189,18 +131,10 @@ func completer(in prompt.Document) []prompt.Suggest {
 				s = *pathSug
 			}
 		case "dd":
-			// if !utils.IsContain(*pathSug, in.GetWordBeforeCursorWithSpace()) {
-			// 	// fmt.Println("cause u : ", in.GetWordBeforeCursorWithSpace())
-			// 	cmd.PathGenerate(in.GetWordBeforeCursorWithSpace(), "2")
-			// }
 			if pathSug != nil {
 				s = *pathSug
 			}
 		case "rm":
-			// if !utils.IsContain(*allSug, in.GetWordBeforeCursorWithSpace()) {
-			// 	// fmt.Println("cause u : ", in.GetWordBeforeCursorWithSpace())
-			// 	cmd.PathFileGenerate(in.GetWordBeforeCursorWithSpace(), "4")
-			// }
 			if allSug != nil {
 				s = *allSug
 			}
@@ -275,9 +209,6 @@ func completer(in prompt.Document) []prompt.Suggest {
 			if idfileSug != nil {
 				s = *idallSug
 			}
-		// 	if pathSug != nil {
-		// 		s = *pathSug
-		// 	}
 		case "u":
 			if !utils.IsContain(*allSug, in.GetWordBeforeCursorWithSpace()) {
 				// fmt.Println("cause u : ", in.GetWordBeforeCursorWithSpace())
@@ -338,13 +269,6 @@ func completer(in prompt.Document) []prompt.Suggest {
 			if dirSug != nil {
 				s = *dirSug
 			}
-			// case "-r":
-			// 	if dirSug != nil {
-			// 		s = *dirSug
-			// 	}
-			// 	if strings.Contains(arrCommandStr[0], "d") {
-			// 		s = *iddirSug
-			// 	}
 		}
 	}
 
@@ -368,25 +292,6 @@ func completer(in prompt.Document) []prompt.Suggest {
 			if allSug != nil {
 				s = *allSug
 			}
-			// case "d":
-			// 	if !utils.IsContain(*allSug, in.GetWordBeforeCursorWithSpace()) {
-			// 		// fmt.Println("cause u : ", in.GetWordBeforeCursorWithSpace())
-			// 		cmd.PathFileGenerate(in.GetWordBeforeCursorWithSpace(), "2")
-			// 	}
-			// 	if allSug != nil {
-			// 		s = *allSug
-			// 	}
-			// case "dd":
-			// 	if !utils.IsContain(*allSug, in.GetWordBeforeCursorWithSpace()) {
-			// 		// fmt.Println("cause u : ", in.GetWordBeforeCursorWithSpace())
-			// 		cmd.PathFileGenerate(in.GetWordBeforeCursorWithSpace(), "2")
-			// 	}
-			// 	if allSug != nil {
-			// 		s = *allSug
-			// 	}
-			// if allSug != nil {
-			// 	s = *allSug
-			// }
 		}
 	}
 	if len(arrCommandStr) >= 4 {
@@ -410,58 +315,8 @@ func completer(in prompt.Document) []prompt.Suggest {
 	return prompt.FilterHasPrefix(s, in.GetWordBeforeCursor(), true)
 }
 
-// var LivePrefixState struct {
-// 	LivePrefix string
-// 	IsEnable   bool
-// }
-
-// func changeLivePrefix() (string, bool) {
-// 	return LivePrefixState.LivePrefix, LivePrefixState.IsEnable
-// }
-
-//--------------------------------------------
-type command struct {
-	name  string
-	param string
-	tip   string
-}
-
-var allCommands []command
-var pageToken string
-var counter int
-var page map[int]string
-
-var dirSug *[]prompt.Suggest
-
-// var fileSug *[]prompt.Suggest
-var pathSug *[]prompt.Suggest
-var allSug *[]prompt.Suggest
-var idfileSug *[]prompt.Suggest
-var iddirSug *[]prompt.Suggest
-var idallSug *[]prompt.Suggest
-var typesSug *[]prompt.Suggest
-var roleSug *[]prompt.Suggest
-var gmailSug *[]prompt.Suggest
-var domainSug *[]prompt.Suggest
-var commentSug *[]prompt.Suggest
-var cmtListSug *[]prompt.Suggest
-
-var colorRed string
-var cfg *yacspin.Config
-var credentialsPath string
-
-var ii cmd.ItemInfo
-
-func init() {
-	utils.CheckCredentials(waitting, start)
-	// 	start()
-	// } else {
-	// 	utils.Check(to, waitting, start)
-	// }
-}
-
 func waitting() {
-	msg := fmt.Sprint(Brown("Please input credentials.json file path"))
+	msg := fmt.Sprint(aurora.Brown("Please input credentials.json file path"))
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Printf("%s\n", msg)
 	//-----------------------Checking credentials
@@ -482,10 +337,9 @@ func waitting() {
 			// fmt.Println("Guess my favorite color:",credentialsPath)
 			start()
 			return
-		} else {
-			msg := fmt.Sprint(Red("There is no credentials.json file"))
-			fmt.Printf("%s\n", msg)
 		}
+		msg := fmt.Sprint(aurora.Red("There is no credentials.json file"))
+		fmt.Printf("%s\n", msg)
 	}
 }
 func start() {
@@ -513,7 +367,7 @@ func start() {
 	// msg := fmt.Sprintf("   ")
 	spinner.Suffix("")
 	spinner.StopCharacter("")
-	msgs := fmt.Sprintf("... %s ", Brown("Type \"ls\" to list files or \"h\" to get more help:"))
+	msgs := fmt.Sprintf("... %s ", aurora.Brown("Type \"ls\" to list files or \"h\" to get more help:"))
 	spinner.StopMessage(msgs)
 	err = spinner.CharSet(yacspin.CharSets[26])
 	// handle the error
@@ -530,7 +384,7 @@ func start() {
 	//------Checking Linux system
 	if !utils.IsCommandAvailable("tree") {
 		// fmt.Println("output===", "yes")
-		glog.Fatalln(Red("Please install tree firstly, then restart this program"))
+		glog.Fatalln(aurora.Red("Please install tree firstly, then restart this program"))
 	}
 	//------Checking Linux system end
 
@@ -560,9 +414,9 @@ func start() {
 		{"h", "", "Print help"},
 		{"n", "", "Next page"},
 		{"p", "", "Previous page"},
-		{"share", "", "Share file or folder\n"+
+		{"share", "", "Share file or folder\n" +
 			"\teg. share file scope role gmail/google group"},
-		{"shared", "", "Share file or folder by id\n"+
+		{"shared", "", "Share file or folder by id\n" +
 			"\teg. share file_id scope role gmail/google group"},
 		{"comment", "", "Commnet file\n" +
 			"\t-c Create comment, eg.\"comment file -c content\" \n" +
@@ -570,7 +424,7 @@ func start() {
 			"\t-u Update comment, eg.\"comment file -u comment_id new_content\" \n" +
 			"\t-l List comment, eg.\"comment file -l \" \n" +
 			"\t-g Get comment, eg.\"comment file -g comment_id\" "},
-		{"commentd", "", "Comment file by id\n"+
+		{"commentd", "", "Comment file by id\n" +
 			"\t-c Create comment, eg.\"comment file_id -c content\" \n" +
 			"\t-d Delete comment, eg.\"comment file_id -d comment_id\" \n" +
 			"\t-u Update comment, eg.\"comment file_id -u comment_id new_content\" \n" +
@@ -611,12 +465,6 @@ func runCommand(commandStr string) {
 			os.Exit(0)
 		case "lo":
 			cmd.Lo()
-			// ii.Lo(drive.DriveScope)
-
-			// if len(arrCommandStr[1:]) >0 {
-			// }else{
-			// 	fmt.Printf(string(colorRed), "Command incomplete, please use \"h\" get help")
-			// }
 		case "mkdir":
 			if len(arrCommandStr[1:]) > 0 {
 				if _, err := ii.CreateDir(arrCommandStr[1]); err != nil {
@@ -752,7 +600,7 @@ func runCommand(commandStr string) {
 		case "share":
 			var domain string
 			if len(arrCommandStr) < 5 {
-				alert := fmt.Sprint(Red("Command incomplete, please use \"h\" get help"))
+				alert := fmt.Sprint(aurora.Red("Command incomplete, please use \"h\" get help"))
 				fmt.Println(alert)
 				return
 			} else if len(arrCommandStr) == 5 {
@@ -765,7 +613,7 @@ func runCommand(commandStr string) {
 		case "shared":
 			var domain string
 			if len(arrCommandStr) < 5 {
-				alert := fmt.Sprint(Red("Command incomplete, please use \"h\" get help"))
+				alert := fmt.Sprint(aurora.Red("Command incomplete, please use \"h\" get help"))
 				fmt.Println(alert)
 				return
 			} else if len(arrCommandStr) == 5 {
@@ -819,50 +667,6 @@ func runCommand(commandStr string) {
 
 	}
 }
-
-//------------
-
-// setprefix ...
-// func setPrefix(msgs string, ii *cmd.ItemInfo) {
-// 	// folderId := ii.path[len(ii.path)-1]
-// 	// fmt.Println(ii.itemId)
-// 	folderId := ii.ItemId
-// 	if dirSug != nil {
-// 		folderName := cmd.GetSugDec(dirSug, folderId)
-// 		msg(folderName + msgs)
-// 	}
-// }
-
-// // msg ...
-// func msg(message string) {
-// 	LivePrefixState.LivePrefix = message + ">>> "
-// 	LivePrefixState.IsEnable = true
-// }
-
-// func startSrv(scope string) *drive.Service {
-
-// 	b, err := ioutil.ReadFile("credentials.json")
-// 	if err != nil {
-// 		glog.Errorln("Unable to read client secret file: %v", err)
-// 	}
-
-// 	// If modifying these scopes, delete your previously saved token.json.
-// 	// config, err := google.ConfigFromJSON(b, drive.DriveMetadataReadonlyScope)
-// 	// config, err := google.ConfigFromJSON(b, "https://www.googleapis.com/auth/drive")
-// 	config, err := google.ConfigFromJSON(b, scope)
-// 	if err != nil {
-// 		glog.Errorln("Unable to parse client secret file to config: %v", err)
-// 	}
-// 	client := getClient(config)
-// 	// client.Get(url string)
-// 	// srv, err := drive.New(client)
-// 	ctx := context.Background()
-// 	srv, err := drive.NewService(ctx, option.WithHTTPClient(client))
-// 	if err != nil {
-// 		glog.Errorln("Unable to retrieve Drive client: %v", err)
-// 	}
-// 	return srv
-// }
 
 // list files of current directory
 func list(cmds []string) {
@@ -934,7 +738,7 @@ func list(cmds []string) {
 		// qString = "'" + ii.ItemId + "' in parents and trashed=false"
 		counter = 0
 		clearMap()
-		userQuery("dls", ii.ItemId)
+		userQuery("dls", ii.ItemID)
 	}
 }
 

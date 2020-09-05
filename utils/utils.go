@@ -20,6 +20,7 @@ import (
 	"google.golang.org/api/option"
 )
 
+// GetLocalPathInfo ... generate path prompt.Suggest
 func GetLocalPathInfo() func(prompt prompt.Suggest) *[]prompt.Suggest {
 	// to prevent duplicate id is file or folder id, tp =0 is for file name. tp =1 is for file id
 	a := make([]prompt.Suggest, 0)
@@ -28,23 +29,8 @@ func GetLocalPathInfo() func(prompt prompt.Suggest) *[]prompt.Suggest {
 		return &a
 	}
 }
-// var (
-// // counter int
-// )
 
-// func init() {
-// }
-
-// var patf string
-
-// func incrFiles() func(path, file string) []string {
-// 	var files []string
-// 	return func(path, file string) []string {
-// 		files = append(files, path+string(os.PathSeparator)+file)
-// 		return files
-// 	}
-// }
-// generate prompt suggest for floder
+// GetSugInfo ... generate prompt suggest for floder
 func GetSugInfo() func(prompt prompt.Suggest, id string, tp int) *[]prompt.Suggest {
 	// to prevent duplicate id is file or folder id, tp =0 is for file name. tp =1 is for file id
 	a := make([]prompt.Suggest, 0)
@@ -77,6 +63,7 @@ func GetSugInfo() func(prompt prompt.Suggest, id string, tp int) *[]prompt.Sugge
 	}
 }
 
+// UniquePrompt ... remove duplicate item
 func UniquePrompt(pSlice []prompt.Suggest, tp int) []prompt.Suggest {
 	// to prevent duplicate id is file or folder id, tp =0 is for file name. tp =1 is for file id
 	keys := make(map[string]bool)
@@ -114,7 +101,7 @@ func Unique(intSlice []int) []int {
 	return list
 }
 
-// for comment function to generate gmail & domain prompt
+// LoadproSugg ... for comment function to generate gmail & domain prompt
 func LoadproSugg(fileName string) *[]prompt.Suggest {
 	sug := GetSugInfo()
 	var ssug *[]prompt.Suggest
@@ -142,6 +129,7 @@ func LoadproSugg(fileName string) *[]prompt.Suggest {
 	return ssug
 }
 
+// SaveProperty ... save data to local json
 func SaveProperty(name string, v interface{}) {
 	file, err := json.MarshalIndent(v, "", " ")
 	if err != nil {
@@ -153,6 +141,7 @@ func SaveProperty(name string, v interface{}) {
 	}
 }
 
+// GetAppHome ...
 func GetAppHome() string {
 	home, _ := os.UserHomeDir()
 	path := fmt.Sprint(home, string(os.PathSeparator), ".local", string(os.PathSeparator), "goclue")
@@ -167,6 +156,7 @@ func GetAppHome() string {
 	return path
 }
 
+// CheckCredentials ...
 func CheckCredentials(fail Callback, success Callback) {
 	home, _ := os.UserHomeDir()
 	path := fmt.Sprint(home, string(os.PathSeparator),
@@ -181,25 +171,27 @@ func CheckCredentials(fail Callback, success Callback) {
 	}
 }
 
+// Callback ...
 type Callback func()
 
+// Check ... check path then use callback
 func Check(path string, fail Callback, success Callback) bool {
 	if Exists(path) {
 		success()
 		return true
-	} else {
-		fail()
-		return false
 	}
+	fail()
+	return false
 }
 
+// Movefile ... move local file
 func Movefile(from, to string) bool {
 	err := os.Rename(from, to)
 	return err == nil
 	// success()
 }
 
-// determine array contain string
+// IsContain ... determine array contain string
 func IsContain(items []prompt.Suggest, item string) bool {
 	for _, eachItem := range items {
 		if strings.Contains(eachItem.Text, item) {
@@ -209,7 +201,7 @@ func IsContain(items []prompt.Suggest, item string) bool {
 	return false
 }
 
-// Checking linux system commands
+// IsCommandAvailable ... Checking linux system commands
 func IsCommandAvailable(name string) bool {
 	cmd := exec.Command("/bin/sh", "-c", "command -v "+name)
 	if err := cmd.Run(); err != nil {
@@ -228,7 +220,7 @@ func Exists(name string) bool {
 	return true
 }
 
-// checking whether is folder
+// IsDir ... checking whether is folder
 func IsDir(path string) bool {
 	// glog.V(8).Info(path)
 	s, err := os.Stat(path)
@@ -239,18 +231,19 @@ func IsDir(path string) bool {
 	return s.IsDir()
 }
 
-// checking whether is file
+// IsFile ... checking whether is file
 func IsFile(path string) bool {
 	return !IsDir(path)
 }
 
-// clearMap ...
+// ClearDownloadMap ... clearMap
 func ClearDownloadMap(m map[string]string) {
 	for k := range m {
 		delete(m, k)
 	}
 }
 
+// IncrFiles ...
 func IncrFiles() func(path, id, file string) map[string]string {
 	var files = make(map[string]string)
 	return func(path, id, file string) map[string]string {
@@ -262,6 +255,7 @@ func IncrFiles() func(path, id, file string) map[string]string {
 
 var filesFromSrv = IncrFiles()
 
+// GetFilesAndFolders ...  get all files and folders from remote folder
 func GetFilesAndFolders(id, path string) (files map[string]string, folders []string, err error) {
 	pthSep := string(os.PathSeparator)
 	qString := "'" + id + "' in parents"
@@ -296,6 +290,7 @@ func GetFilesAndFolders(id, path string) (files map[string]string, folders []str
 	return files, folders, nil
 }
 
+// StartSrv ... start service
 func StartSrv(scope string) *drive.Service {
 
 	b, err := ioutil.ReadFile(GetAppHome() + string(os.PathSeparator) + "credentials.json")

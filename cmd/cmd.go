@@ -11,11 +11,12 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-	"github.com/golang/glog"
+
 	"github.com/c-bata/go-prompt"
 	"github.com/cheynewallace/tabby"
 	"github.com/dustin/go-humanize"
-	. "github.com/logrusorgru/aurora"
+	"github.com/golang/glog"
+	"github.com/logrusorgru/aurora"
 	"github.com/roleyzhang/GoClue/utils"
 	"github.com/theckman/yacspin"
 	"go.uber.org/ratelimit"
@@ -25,58 +26,81 @@ import (
 
 var qString string
 
+// DirSug ... for store remote folder prompt
 var DirSug *[]prompt.Suggest
-var Page map[int]string
-var FileSug *[]prompt.Suggest
-var PathSug *[]prompt.Suggest
-var AllSug *[]prompt.Suggest
-var IdfileSug *[]prompt.Suggest
-var IddirSug *[]prompt.Suggest
-var IdAllSug *[]prompt.Suggest
 
+// Page ... store nextpagetoken, key is int, value string
+var Page map[int]string
+
+// FileSug ... for store remote file prompt
+var FileSug *[]prompt.Suggest
+
+// PathSug ... for store local path prompt
+var PathSug *[]prompt.Suggest
+
+// AllSug ... for store files & folders prompt
+var AllSug *[]prompt.Suggest
+
+// IdfileSug ... for store file id prompt
+var IdfileSug *[]prompt.Suggest
+
+// IddirSug ... for store folder id prompt
+var IddirSug *[]prompt.Suggest
+
+// IDAllSug ... for store files & folders id prompt
+var IDAllSug *[]prompt.Suggest
+
+// TypesSug ... for store remote file type prompt
 var TypesSug *[]prompt.Suggest
+
+// RoleSug ... for store role prompt
 var RoleSug *[]prompt.Suggest
+
+// GmailSug ... for store gmail prompt
 var GmailSug *[]prompt.Suggest
+
+// DomainSug ... for store domain prompt
 var DomainSug *[]prompt.Suggest
+
+// CommentSug ... for store commnet prompt
 var CommentSug *[]prompt.Suggest
+
+// CmtListSug ... for store comment prompt
 var CmtListSug *[]prompt.Suggest
+
+// Ps ... prompt style
+var Ps PromptStyle
+
+// Ii ... struct of item information
+var Ii ItemInfo
 
 var cfg *yacspin.Config
 var pthSep string
-
-// var colorGreen string
-// var colorCyan string
 var colorYellow string
 var colorRed string
-
 var commands map[string]string
-
-var Ps PromptStyle
-
-var Ii ItemInfo
-
 var perPageSize int64
 
+// ItemInfo ... struct
 type ItemInfo struct {
 	// item       *drive.File
 	Path         map[string]string
-	RootId       string
-	ItemId       string
+	RootID       string
+	ItemID       string
 	DeleteItemIs string
 	maxLength    int
 }
 
+// PromptStyle ... struct
 type PromptStyle struct {
 	Pre      string
 	Gap      string
-	FolderId string
+	FolderID string
 	Info     string
 	Status   string
 }
 
 func init() {
-	// colorGreen = "\033[32m%26s  %s\t%s\t%s\t%s\n"
-	// colorCyan = "\033[36m%26s  %s\t%s\t%s\t%s\n"
 	colorYellow = "\033[33m%s %s %s\n"
 	colorRed = "\033[31m%s\n"
 
@@ -122,8 +146,8 @@ func init() {
 
 	Ii = ItemInfo{
 		Path:         make(map[string]string),
-		RootId:       "",
-		ItemId:       "",
+		RootID:       "",
+		ItemID:       "",
 		DeleteItemIs: "",
 		maxLength:    40,
 	}
@@ -131,7 +155,7 @@ func init() {
 	Ps = PromptStyle{
 		Pre:      "$0[$1 $2]",
 		Gap:      ">>>",
-		FolderId: "",
+		FolderID: "",
 		Info:     "",
 		Status:   "",
 	}
@@ -153,8 +177,8 @@ func init() {
 	perPageSize = 40
 }
 
-// getSugId ...
-func (ii *ItemInfo) getSugId(sug *[]prompt.Suggest, text string) (string, error) {
+// getSugID ...
+func (ii *ItemInfo) getSugID(sug *[]prompt.Suggest, text string) (string, error) {
 	// fmt.Println(text)
 	if sug != nil {
 		for _, v := range *sug {
@@ -163,7 +187,7 @@ func (ii *ItemInfo) getSugId(sug *[]prompt.Suggest, text string) (string, error)
 			}
 		}
 	}
-	qString := "name='" + text + "'" + " and '" + ii.ItemId + "' in parents " + " and trashed=false"
+	qString := "name='" + text + "'" + " and '" + ii.ItemID + "' in parents " + " and trashed=false"
 
 	file, err := utils.StartSrv(drive.DriveScope).Files.List().
 		Q(qString).
@@ -188,42 +212,7 @@ func (ii *ItemInfo) getSugId(sug *[]prompt.Suggest, text string) (string, error)
 	return file.Files[0].Id, nil
 }
 
-// deleteSugId
-// func (ii *ItemInfo) deleteSugId(sug *[]prompt.Suggest, text string) {
-// 	// fmt.Println(text)
-// 	if sug != nil {
-// 		for i, v := range *sug {
-// 			if v.Text == text {
-// 				(*sug)[i] = (*sug)[len(*sug)-1]
-// 				(*sug)[len(*sug)-1] = prompt.Suggest{Text: "", Description: ""}
-// 				*sug = (*sug)[:len(*sug)-1]
-// 			}
-// 		}
-// 	}
-
-// 	for i, v := range *sug {
-// 		glog.V(8).Info("", i, " : ", v)
-// 	}
-// 	// if err != nil {
-// 	// 	fmt.Printf(string(colorRed), err.Error())
-// 	// 	return "", err
-// 	// }
-// 	// return file.Files[0].Id, nil
-// }
-
-//-----------------------------
-// type Callback func(msg string)
-
-// func SetPrefix(msgs string, ii *ItemInfo, callback Callback ) {
-// 	// glog.V(8).Info("SetPrefix: ",msgs, ii.ItemId, len(*DirSug) )
-// 	folderId := ii.ItemId
-// 	if DirSug != nil {
-// 		folderName := GetSugDec(DirSug, folderId)
-// 		callback(folderName + msgs)
-
-// 	}
-// }
-
+// SetPrefix ... set prompt prefix
 func (ps *PromptStyle) SetPrefix(msgs string) {
 	wc := 0
 	switch wc {
@@ -242,27 +231,14 @@ func (ps *PromptStyle) SetPrefix(msgs string) {
 		}(msgs)
 		<-done
 	}
-	// go func(mas string) {
-	// 	ps.Info = msgs
-	// }(msgs)
 }
 
-// func (ps *PromptStyle) SetStatus(msgs string) {
-// 	// Create a channel to push an empty struct to once we're done
-// 	done := make(chan struct{})
-// 	go func(mas string) {
-// 		ps.Status = msgs
-// 		// Push an empty struct once we're done
-// 		done <- struct{}{}
-// 	}(msgs)
-// 	<-done
-// }
-
+// SetDynamicPrefix ... set promt dynamic info
 func (ps *PromptStyle) SetDynamicPrefix() (string, bool) {
 	// glog.V(8).Info("SetPrefix: ",msgs, ii.ItemId, len(*DirSug) )
 	var result string
 	if DirSug != nil {
-		folderName := GetSugDec(DirSug, ps.FolderId)
+		folderName := GetSugDec(DirSug, ps.FolderID)
 		value := ps.Pre
 		r := strings.NewReplacer(
 			"$0", ps.Status,
@@ -275,7 +251,7 @@ func (ps *PromptStyle) SetDynamicPrefix() (string, bool) {
 	return (result + ps.Gap), true
 }
 
-// getRoot ...
+// GetRoot ... get remote home folder
 func (ps *PromptStyle) GetRoot(ii *ItemInfo) {
 	dirInfo := utils.GetSugInfo()
 	item, err := utils.StartSrv(drive.DriveScope).
@@ -288,28 +264,22 @@ func (ps *PromptStyle) GetRoot(ii *ItemInfo) {
 	}
 	if item.MimeType == "application/vnd.google-apps.folder" {
 		ii.Path[item.Id] = item.Name
-		ii.ItemId = item.Id
-		ii.RootId = item.Id
-		ps.FolderId = item.Id
+		ii.ItemID = item.Id
+		ii.RootID = item.Id
+		ps.FolderID = item.Id
 		// setting the prompt.Suggest
 		s2 := prompt.Suggest{Text: item.Name, Description: item.Id}
 		DirSug = dirInfo(s2, ii.DeleteItemIs, 0)
 	}
 }
 
-// // msg ...
-// func msg(message string) {
-// 	// glog.V(8).Info("msg: ", message)
-// 	LivePrefixState.LivePrefix = message + ">>> "
-// 	LivePrefixState.IsEnable = true
-// }
 //-------------------------------
 // breakDown ...
 func breakDown(path string) []string {
 	return strings.Split(path, "/")
 }
 
-// print the request result
+// ShowResult ... print the request result
 func (ii *ItemInfo) ShowResult(
 	page map[int]string,
 	counter int,
@@ -351,7 +321,7 @@ func (ii *ItemInfo) ShowResult(
 		}
 	}
 	if param == "dir" {
-		iD, err := ii.getSugId(AllSug, cmd)
+		iD, err := ii.getSugID(AllSug, cmd)
 		if err != nil {
 			fmt.Printf(string(colorRed), "file or dir not exist: "+err.Error())
 			glog.Errorln("file or dir not exist: " + err.Error())
@@ -394,21 +364,21 @@ func (ii *ItemInfo) ShowResult(
 					name = i.Name
 				}
 				if len(i.Permissions) > 1 {
-					types = fmt.Sprintf("%s %s", Brown("*S*"), strings.Split(i.MimeType, "/")[1])
+					types = fmt.Sprintf("%s %s", aurora.Brown("*S*"), strings.Split(i.MimeType, "/")[1])
 				} else {
 					types = strings.Split(i.MimeType, "/")[1]
 				}
-				t.AddLine(Bold(Cyan(name)),
-					Bold(Cyan(i.Id)),
-					Bold(Cyan(types)),
-					Bold(Cyan(i.Owners[0].DisplayName)),
-					Bold(Cyan(i.CreatedTime)))
+				t.AddLine(aurora.Bold(aurora.Cyan(name)),
+					aurora.Bold(aurora.Cyan(i.Id)),
+					aurora.Bold(aurora.Cyan(types)),
+					aurora.Bold(aurora.Cyan(i.Owners[0].DisplayName)),
+					aurora.Bold(aurora.Cyan(i.CreatedTime)))
 				s := prompt.Suggest{Text: i.Id, Description: i.Name}
 				s2 := prompt.Suggest{Text: i.Name, Description: i.Id}
 				DirSug = dirInfo(s2, ii.DeleteItemIs, 0)
 				AllSug = allInfo(s2, ii.DeleteItemIs, 0)
 				IddirSug = iddirInfo(s, ii.DeleteItemIs, 1)
-				IdAllSug = idAllInfo(s, ii.DeleteItemIs, 1)
+				IDAllSug = idAllInfo(s, ii.DeleteItemIs, 1)
 			} else {
 				var name string
 				var types string
@@ -418,30 +388,30 @@ func (ii *ItemInfo) ShowResult(
 					name = i.Name
 				}
 				if len(i.Permissions) > 1 {
-					types = fmt.Sprintf("%s %s", Brown("*S*"), strings.Split(i.MimeType, "/")[1])
+					types = fmt.Sprintf("%s %s", aurora.Brown("*S*"), strings.Split(i.MimeType, "/")[1])
 				} else {
 					types = strings.Split(i.MimeType, "/")[1]
 				}
 				if i.MimeType == "application/vnd.google-apps.shortcut" {
-					t.AddLine(Cyan(name),
-						Cyan(i.Id),
-						Cyan(types),
-						Cyan(i.Owners[0].DisplayName),
-						Cyan(i.CreatedTime))
+					t.AddLine(aurora.Cyan(name),
+						aurora.Cyan(i.Id),
+						aurora.Cyan(types),
+						aurora.Cyan(i.Owners[0].DisplayName),
+						aurora.Cyan(i.CreatedTime))
 
 				} else {
-					t.AddLine(Green(name),
-						Green(i.Id),
-						Green(types),
-						Green(i.Owners[0].DisplayName),
-						Green(i.CreatedTime))
+					t.AddLine(aurora.Green(name),
+						aurora.Green(i.Id),
+						aurora.Green(types),
+						aurora.Green(i.Owners[0].DisplayName),
+						aurora.Green(i.CreatedTime))
 				}
 				s := prompt.Suggest{Text: i.Id, Description: i.Name}
 				s2 := prompt.Suggest{Text: i.Name, Description: i.Id}
 				FileSug = fileInfo(s2, ii.DeleteItemIs, 0)
 				AllSug = allInfo(s2, ii.DeleteItemIs, 0)
 				IdfileSug = idfileInfo(s, ii.DeleteItemIs, 1)
-				IdAllSug = idAllInfo(s, ii.DeleteItemIs, 1)
+				IDAllSug = idAllInfo(s, ii.DeleteItemIs, 1)
 			}
 		}
 		t.Print()
@@ -453,7 +423,57 @@ func (ii *ItemInfo) ShowResult(
 	return r
 }
 
-//  generate folder path...
+func (ii *ItemInfo) setSult(id, scope string) { // This should testing by change the authorize token
+
+	dirInfo := utils.GetSugInfo()
+	fileInfo := utils.GetSugInfo()
+	allInfo := utils.GetSugInfo()
+	idfileInfo := utils.GetSugInfo()
+	iddirInfo := utils.GetSugInfo()
+	idAllInfo := utils.GetSugInfo()
+
+	//--------every time runCommand add folder history to dirSug
+	for key, value := range ii.Path {
+		s := prompt.Suggest{Text: value, Description: key}
+		DirSug = dirInfo(s, ii.DeleteItemIs, 0)
+
+	}
+	qString := "'" + id + "' in parents and trashed=false"
+	glog.V(5).Infoln("qString: ", qString)
+	r, err := utils.StartSrv(scope).Files.List().
+		Q(qString).
+		PageSize(40).
+		Fields("nextPageToken, files(id, name, mimeType )").
+		Do()
+
+	if err != nil {
+		// uncomment below will cause 500 error and program exit why?
+		glog.Errorf("Unable to retrieve files: %v", err)
+	}
+	if len(r.Files) == 0 {
+		glog.V(1).Info("No files found.")
+	} else {
+		for _, i := range r.Files {
+			if i.MimeType == "application/vnd.google-apps.folder" {
+				s := prompt.Suggest{Text: i.Id, Description: i.Name}
+				s2 := prompt.Suggest{Text: i.Name, Description: i.Id}
+				DirSug = dirInfo(s2, ii.DeleteItemIs, 0)
+				AllSug = allInfo(s2, ii.DeleteItemIs, 0)
+				IddirSug = iddirInfo(s, ii.DeleteItemIs, 1)
+				IDAllSug = idAllInfo(s, ii.DeleteItemIs, 1)
+			} else {
+				s := prompt.Suggest{Text: i.Id, Description: i.Name}
+				s2 := prompt.Suggest{Text: i.Name, Description: i.Id}
+				FileSug = fileInfo(s2, ii.DeleteItemIs, 0)
+				AllSug = allInfo(s2, ii.DeleteItemIs, 0)
+				IdfileSug = idfileInfo(s, ii.DeleteItemIs, 1)
+				IDAllSug = idAllInfo(s, ii.DeleteItemIs, 1)
+			}
+		}
+	}
+}
+
+// PathGenerate ... generate folder path...
 func PathGenerate(path, level string) {
 
 	pathInfo := utils.GetLocalPathInfo()
@@ -461,7 +481,6 @@ func PathGenerate(path, level string) {
 	if path == "HOME" {
 		// only list folders
 		// cmd := exec.Command("tree", "-f", "-i", "-d", os.Getenv(path))
-
 		cmd := exec.Command("tree", "-f", "-L", level, "-i", "-d", os.Getenv(path))
 		output, _ := cmd.Output()
 		for _, m := range strings.Split(string(output), "\n") {
@@ -469,19 +488,9 @@ func PathGenerate(path, level string) {
 			s := prompt.Suggest{Text: m, Description: ""}
 			PathSug = pathInfo(s)
 		}
-
-		// files := make([]string, 0)
-		// GetLocalItems(os.Getenv(path), true, &files)
-		// for _, file := range files {
-		// 	// fmt.Println(string)
-		// 	s := prompt.Suggest{Text: strings.Replace(file,home+pthSep,"",1), Description: ""}
-		// 	// s := prompt.Suggest{Text: file, Description: ""}
-		// 	PathSug = pathInfo(s)
-		// }
 	} else {
 		// list files & folder
 		// cmd := exec.Command("tree", "-f", "-i", path)
-
 		cmd := exec.Command("tree", "-f", "-L", level, "-i", path)
 		output, _ := cmd.Output()
 		for _, m := range strings.Split(string(output), "\n") {
@@ -498,11 +507,9 @@ func PathGenerate(path, level string) {
 		// 	PathSug = pathInfo(s)
 		// }
 	}
-
-	// fmt.Println("pathlen", len(*PathSug))
 }
 
-//  generate folder and file path...
+// PathFileGenerate ... generate folder and file path...
 func PathFileGenerate(path, level string) {
 	pathInfo := utils.GetLocalPathInfo()
 	// home, _ :=os.UserHomeDir()
@@ -534,7 +541,7 @@ func PathFileGenerate(path, level string) {
 
 // SetPrefix ...
 
-// rmd ... delete file by id
+// Rmd ... delete file by id
 func (ii *ItemInfo) Rmd(id string) error {
 	//TODO: delete file
 	//-----yacspin-----------------
@@ -547,7 +554,7 @@ func (ii *ItemInfo) Rmd(id string) error {
 	}
 	// msg := fmt.Sprintf("   Getting %s information from server", id)
 	// spinner.Suffix(msg)
-	msgs := fmt.Sprintf("   Delete %s... %s ", id, Brown("done"))
+	msgs := fmt.Sprintf("   Delete %s... %s ", id, aurora.Brown("done"))
 	spinner.StopMessage(msgs)
 	err = spinner.CharSet(yacspin.CharSets[9])
 	// handle the error
@@ -571,21 +578,13 @@ func (ii *ItemInfo) Rmd(id string) error {
 		return err
 	}
 
-	if id == ii.RootId {
+	if id == ii.RootID {
 		spinner.StopFailMessage("   The root folder should not be deleted")
 		if err := spinner.StopFail(); err != nil {
 			glog.V(8).Info("The root folder should not be deleted", err)
 		}
 		return errors.New("The root folder should not be deleted")
 	}
-
-	// if types == "-r" && file.MimeType != "application/vnd.google-apps.folder" {
-	// 	spinner.StopFailMessage("   The delete item: item is not folder")
-	// 	if err := spinner.StopFail(); err != nil {
-	// 		glog.V(8).Info("The delete item: item is not folder", err)
-	// 	}
-	// 	return errors.New("The delete item: item is not folder")
-	// }
 
 	err = utils.StartSrv(drive.DriveScope).Files.Delete(id).Do()
 
@@ -604,7 +603,7 @@ func (ii *ItemInfo) Rmd(id string) error {
 	return nil
 }
 
-// rm ... delete file
+// Rm ... delete file
 func (ii *ItemInfo) Rm(name string) error {
 	//-----yacspin-----------------
 	spinner, err := yacspin.New(*cfg)
@@ -616,7 +615,7 @@ func (ii *ItemInfo) Rm(name string) error {
 	}
 	// msg := fmt.Sprintf("   Getting %s information from server", id)
 	// spinner.Suffix(msg)
-	msgs := fmt.Sprintf("   Delete %s... %s ", name, Brown("done"))
+	msgs := fmt.Sprintf("   Delete %s... %s ", name, aurora.Brown("done"))
 	spinner.StopMessage(msgs)
 	err = spinner.CharSet(yacspin.CharSets[9])
 	// handle the error
@@ -626,13 +625,11 @@ func (ii *ItemInfo) Rm(name string) error {
 
 	if err := spinner.Start(); err != nil {
 		glog.V(8).Info("Spin start error", err.Error())
-		// glog.Errorf("Spin start error %v", err)
-		// return err
 	}
 	//-----yacspin-----------------
 	//TODO: delete file
 	var id string
-	iD, err := ii.getSugId(DirSug, strings.TrimSuffix(name, " "))
+	iD, err := ii.getSugID(DirSug, strings.TrimSuffix(name, " "))
 	if err != nil {
 		// fmt.Printf(string(colorRed), "file or dir not exist: "+err.Error())
 		glog.Errorln("file or dir not exist: ", err.Error())
@@ -654,21 +651,13 @@ func (ii *ItemInfo) Rm(name string) error {
 		return err
 	}
 
-	if id == ii.RootId {
+	if id == ii.RootID {
 		spinner.StopFailMessage("   The root folder should not be deleted")
 		if err := spinner.StopFail(); err != nil {
 			glog.V(8).Info("The root folder should not be deleted", err)
 		}
 		return errors.New("The root folder should not be deleted")
 	}
-
-	// if types == "-r" && file.MimeType != "application/vnd.google-apps.folder" {
-	// 	spinner.StopFailMessage("   The delete item: item is not folder")
-	// 	if err := spinner.StopFail(); err != nil {
-	// 		glog.V(8).Info("The delete item: item is not folder", err)
-	// 	}
-	// 	return errors.New("The delete item: item is not folder")
-	// }
 
 	err = utils.StartSrv(drive.DriveScope).Files.Delete(id).Do()
 
@@ -687,7 +676,7 @@ func (ii *ItemInfo) Rm(name string) error {
 	return nil
 }
 
-// trash ...
+// Trash ... put file or folder to remote trash
 func (ii *ItemInfo) Trash(name string) error {
 	//-----yacspin-----------------
 	spinner, err := yacspin.New(*cfg)
@@ -707,13 +696,11 @@ func (ii *ItemInfo) Trash(name string) error {
 
 	if err := spinner.Start(); err != nil {
 		glog.V(8).Info("Spin start error", err.Error())
-		// glog.Errorf("Spin start error %v", err)
-		// return err
 	}
 	//-----yacspin-----------------
 	//TODO: trash file
 	var id string
-	iD, err := ii.getSugId(DirSug, strings.TrimSuffix(name, " "))
+	iD, err := ii.getSugID(DirSug, strings.TrimSuffix(name, " "))
 	if err != nil {
 		fmt.Printf(string(colorRed), "file or dir not exist: ", err.Error())
 		glog.Errorln("file or dir not exist: ", err.Error())
@@ -727,13 +714,9 @@ func (ii *ItemInfo) Trash(name string) error {
 		return err
 	}
 
-	if id == ii.RootId {
+	if id == ii.RootID {
 		return errors.New("The root folder should not be trashed")
 	}
-
-	// if types == "-r" && file.MimeType != "application/vnd.google-apps.folder" {
-	// 	return errors.New("The trashed item: item is not folder")
-	// }
 
 	_, err = utils.StartSrv(drive.DriveScope).Files.Update(file.Id, &drive.File{Trashed: true}).Do()
 
@@ -742,7 +725,7 @@ func (ii *ItemInfo) Trash(name string) error {
 		return err
 	}
 	// fmt.Printf(string(colorYellow), file.Name, "", "Be Trashed")
-	msgs := fmt.Sprintf("   Trash %s... %s ", file.Name, Brown("done"))
+	msgs := fmt.Sprintf("   Trash %s... %s ", file.Name, aurora.Brown("done"))
 	spinner.StopMessage(msgs)
 	ii.DeleteItemIs = id
 	if err := spinner.Stop(); err != nil {
@@ -751,7 +734,7 @@ func (ii *ItemInfo) Trash(name string) error {
 	return nil
 }
 
-// trash by id...
+// Trashd ... trash file or folder by id...
 func (ii *ItemInfo) Trashd(id string) error {
 	//-----yacspin-----------------
 	spinner, err := yacspin.New(*cfg)
@@ -771,8 +754,6 @@ func (ii *ItemInfo) Trashd(id string) error {
 
 	if err := spinner.Start(); err != nil {
 		glog.V(8).Info("Spin start error", err.Error())
-		// glog.Errorf("Spin start error %v", err)
-		// return err
 	}
 	//-----yacspin-----------------
 	file, err := utils.StartSrv(drive.DriveScope).Files.Get(id).Do()
@@ -781,13 +762,9 @@ func (ii *ItemInfo) Trashd(id string) error {
 		return err
 	}
 
-	if id == ii.RootId {
+	if id == ii.RootID {
 		return errors.New("The root folder should not be trashed")
 	}
-
-	// if types == "-r" && file.MimeType != "application/vnd.google-apps.folder" {
-	// 	return errors.New("The trashed item: item is not folder")
-	// }
 
 	file, err = utils.StartSrv(drive.DriveScope).Files.Update(file.Id, &drive.File{Trashed: true}).Do()
 
@@ -796,7 +773,7 @@ func (ii *ItemInfo) Trashd(id string) error {
 		return err
 	}
 	// fmt.Printf(string(colorYellow), file.Name, "", "Be Trashed")
-	msgs := fmt.Sprintf("   Trash %s... %s ", file.Name, Brown("done"))
+	msgs := fmt.Sprintf("   Trash %s... %s ", file.Name, aurora.Brown("done"))
 	ii.DeleteItemIs = strings.TrimSuffix(id, " ")
 	spinner.StopMessage(msgs)
 	if err := spinner.Stop(); err != nil {
@@ -805,7 +782,7 @@ func (ii *ItemInfo) Trashd(id string) error {
 	return nil
 }
 
-func (ii *ItemInfo) upload(file, parentId string) (*drive.File, error) {
+func (ii *ItemInfo) upload(file, parentID string) (*drive.File, error) {
 	//-----yacspin-----------------
 	spinner, err := yacspin.New(*cfg)
 	if err != nil {
@@ -816,7 +793,7 @@ func (ii *ItemInfo) upload(file, parentId string) (*drive.File, error) {
 	}
 	msg := fmt.Sprintf("   Uploading %s to cloud ", file)
 	spinner.Suffix(msg)
-	msgs := fmt.Sprintf("... %s ", Brown("done"))
+	msgs := fmt.Sprintf("... %s ", aurora.Brown("done"))
 	spinner.StopMessage(msgs)
 	err = spinner.CharSet(yacspin.CharSets[71])
 	// handle the error
@@ -826,13 +803,11 @@ func (ii *ItemInfo) upload(file, parentId string) (*drive.File, error) {
 
 	if err := spinner.Start(); err != nil {
 		glog.V(8).Info("Spin start error", err.Error())
-		// glog.Errorf("Spin start error %v", err)
-		// return err
 	}
 	//-----yacspin-----------------
 	// ii.DeleteItemIs = ""
-	if parentId == "" {
-		parentId = ii.ItemId
+	if parentID == "" {
+		parentID = ii.ItemID
 	}
 	// fil := strings.Split(file, "u ")
 	fi, err := os.Open(file)
@@ -855,7 +830,7 @@ func (ii *ItemInfo) upload(file, parentId string) (*drive.File, error) {
 	}
 	u := &drive.File{
 		Name:    filepath.Base(fileInfo.Name()),
-		Parents: []string{parentId},
+		Parents: []string{parentID},
 	}
 	// ufile, err := startSrv(drive.DriveScope).Files.Create(u).Media(fi).Do()
 	ufile, err := utils.StartSrv(drive.DriveScope).Files.
@@ -865,9 +840,9 @@ func (ii *ItemInfo) upload(file, parentId string) (*drive.File, error) {
 			// fmt.Printf("%d, %d\r", now, size)
 			rate := now * 100 / size
 			mesg := fmt.Sprintf("%d%%  %s / %s",
-				Brown(rate),
-				Brown(humanize.Bytes(uint64(now))),
-				Brown(humanize.Bytes(uint64(size))))
+				aurora.Brown(rate),
+				aurora.Brown(humanize.Bytes(uint64(now))),
+				aurora.Brown(humanize.Bytes(uint64(size))))
 			spinner.Message(mesg)
 		}).
 		Do()
@@ -885,7 +860,7 @@ func (ii *ItemInfo) upload(file, parentId string) (*drive.File, error) {
 	return ufile, nil
 }
 
-// createDir...
+// CreateDir ... create folder
 func (ii *ItemInfo) CreateDir(name string) (*drive.File, error) {
 	//-----yacspin-----------------
 	spinner, err := yacspin.New(*cfg)
@@ -905,15 +880,13 @@ func (ii *ItemInfo) CreateDir(name string) (*drive.File, error) {
 
 	if err := spinner.Start(); err != nil {
 		glog.V(8).Info("Spin start error", err.Error())
-		// glog.Errorf("Spin start error %v", err)
-		// return err
 	}
 	//-----yacspin-----------------
 	// ii.DeleteItemIs = ""
 	d := &drive.File{
 		Name:     name,
 		MimeType: "application/vnd.google-apps.folder",
-		Parents:  []string{ii.ItemId},
+		Parents:  []string{ii.ItemID},
 	}
 	dir, err := utils.StartSrv(drive.DriveScope).Files.Create(d).Do()
 
@@ -923,7 +896,7 @@ func (ii *ItemInfo) CreateDir(name string) (*drive.File, error) {
 	}
 
 	// fmt.Printf(string(colorYellow), dir.Name, "", " has been created")
-	msgs := fmt.Sprintf("   Create %s... %s ", dir.Name, Brown("done"))
+	msgs := fmt.Sprintf("   Create %s... %s ", dir.Name, aurora.Brown("done"))
 	spinner.StopMessage(msgs)
 	if err := spinner.Stop(); err != nil {
 		glog.Errorf("Spinner err: %v", err)
@@ -931,7 +904,7 @@ func (ii *ItemInfo) CreateDir(name string) (*drive.File, error) {
 	return dir, nil
 }
 
-// createInDir...
+// CreateInDir ...
 func CreateInDir() func(name, path, parentId string) (map[string]string, *drive.File, error) {
 	// //-----yacspin-----------------
 	// spinner, err := yacspin.New(*cfg)
@@ -983,30 +956,7 @@ func CreateInDir() func(name, path, parentId string) (map[string]string, *drive.
 	}
 }
 
-// // getRoot ...
-// func (ii *ItemInfo) GetRoot() {
-// 	dirInfo := getSugInfo()
-// 	item, err := utils.StartSrv(drive.DriveScope).
-// 		// Files.Get(id).
-// 		Files.Get("root").
-// 		Fields("id, name, mimeType, parents, owners, createdTime").
-// 		Do()
-// 	if err != nil {
-// 		println("shit happened: ", err.Error())
-// 		glog.Errorf("Unable to retrieve root: %v", err)
-// 		// return nil
-// 	}
-// 	if item.MimeType == "application/vnd.google-apps.folder" {
-// 		ii.Path[item.Id] = item.Name
-// 		ii.ItemId = item.Id
-// 		ii.RootId = item.Id
-// 		// setting the prompt.Suggest
-// 		s2 := prompt.Suggest{Text: item.Name, Description: item.Id}
-// 		DirSug = dirInfo(s2)
-// 	}
-// }
-
-// getNode by id ...
+// GetNoded ... change folder by id
 func (ii *ItemInfo) GetNoded(id string) {
 	//-----yacspin-----------------
 	spinner, err := yacspin.New(*cfg)
@@ -1049,11 +999,11 @@ func (ii *ItemInfo) GetNoded(id string) {
 		if item.MimeType == "application/vnd.google-apps.folder" ||
 			item.MimeType == "application/vnd.google-apps.shortcut" {
 			ii.Path[item.Id] = item.Name
-			ii.ItemId = item.Id
+			ii.ItemID = item.Id
 			if id == "root" {
-				ii.RootId = item.Id
+				ii.RootID = item.Id
 			}
-			Ps.FolderId = item.Id
+			Ps.FolderID = item.Id
 		}
 	}
 	if err := spinner.Stop(); err != nil {
@@ -1061,7 +1011,7 @@ func (ii *ItemInfo) GetNoded(id string) {
 	}
 }
 
-// getNode ...
+// GetNode ... change folder
 func (ii *ItemInfo) GetNode(cmd string) {
 	//-----yacspin-----------------
 	spinner, err := yacspin.New(*cfg)
@@ -1097,7 +1047,7 @@ func (ii *ItemInfo) GetNode(cmd string) {
 	if name == "root" || name == "My Drive" {
 		id = "root"
 	} else {
-		iD, err := ii.getSugId(DirSug, strings.TrimSuffix(name, " "))
+		iD, err := ii.getSugID(DirSug, strings.TrimSuffix(name, " "))
 		if err != nil {
 			spinner.StopFailMessage("   file or dir not exist")
 			if err := spinner.StopFail(); err != nil {
@@ -1126,23 +1076,24 @@ func (ii *ItemInfo) GetNode(cmd string) {
 		if item.MimeType == "application/vnd.google-apps.folder" ||
 			item.MimeType == "application/vnd.google-apps.shortcut" {
 			ii.Path[item.Id] = item.Name
-			ii.ItemId = item.Id
+			ii.ItemID = item.Id
 			if id == "root" {
-				ii.RootId = item.Id
+				ii.RootID = item.Id
 			}
-			Ps.FolderId = item.Id
+			Ps.FolderID = item.Id
 
 			// setting the prompt.Suggest
 			s2 := prompt.Suggest{Text: item.Name, Description: item.Id}
 			DirSug = dirInfo(s2, ii.DeleteItemIs, 0)
 		}
 	}
+	ii.setSult(id, drive.DriveScope)
 	if err := spinner.Stop(); err != nil {
 		glog.Errorf("Spinner err: %v", err)
 	}
 }
 
-// move file
+// Move ... move file
 func (ii *ItemInfo) Move(cmd string) error {
 	//TODO: move file
 	// println("this is .. move", cmd)
@@ -1151,7 +1102,7 @@ func (ii *ItemInfo) Move(cmd string) error {
 		return errors.New("Wrong command format, please use \"h\" get help")
 	}
 	fil := strings.Split(strings.Split(cmd, "mv ")[1], ">")
-	iD, err := ii.getSugId(AllSug, strings.TrimSuffix(fil[0], " "))
+	iD, err := ii.getSugID(AllSug, strings.TrimSuffix(fil[0], " "))
 	if err != nil {
 		glog.Errorln("file or dir not exist: " + err.Error())
 		return err
@@ -1163,14 +1114,14 @@ func (ii *ItemInfo) Move(cmd string) error {
 		return err
 	}
 
-	if file.Id == ii.RootId {
+	if file.Id == ii.RootID {
 		return errors.New("The root folder should not be moved")
 	}
 
 	if len(breakDown(fil[1])) > 1 { // move to another folder
 		newParentName := strings.Trim(breakDown(fil[1])[len(breakDown(fil[1]))-2], " ") // move to another folder
 		newName := strings.Trim(breakDown(fil[1])[len(breakDown(fil[1]))-1], " ")       // change item name
-		iD, err := ii.getSugId(AllSug, newParentName)
+		iD, err := ii.getSugID(AllSug, newParentName)
 		if err != nil {
 			glog.Errorln("file or dir not exist: ", err.Error())
 			return err
@@ -1194,9 +1145,6 @@ func (ii *ItemInfo) Move(cmd string) error {
 		newFile, err := utils.StartSrv(drive.DriveScope).Files.Update(file.Id, &drive.File{
 			Name: newName,
 		}).Do()
-		// .AddParents(file.Id)
-		// RemoveParents(path.Join(file.item.Parents...)).
-		// Fields(fileInfoFields...).Do()
 		if err != nil {
 			fmt.Printf(string(colorRed), err.Error())
 			return err
@@ -1222,24 +1170,17 @@ func (wc *WriteCounter) Write(p []byte) (int, error) {
 	return n, nil
 }
 
+// PrintProgress ...
 func (wc WriteCounter) PrintProgress() {
-	// Clear the line by using a character return to go back to the start and remove
-	// the remaining characters by filling it with spaces
-	// fmt.Printf("%s", strings.Repeat(" ", 35))
-	// Return again and print current status of download
-	// We use the humanize package to print the bytes in a meaningful way (e.g. 10 MB)
-	// fmt.Printf(". %s complete", humanize.Bytes(wc.Total))
-
 	rate := wc.Total * 100 / wc.Amount
 	mesg := fmt.Sprintf("downloading  %d%%  %s / %s",
-		Brown(rate), Brown(humanize.Bytes(wc.Total)), Brown(humanize.Bytes(wc.Amount)))
+		aurora.Brown(rate), aurora.Brown(humanize.Bytes(wc.Total)), aurora.Brown(humanize.Bytes(wc.Amount)))
 	wc.Spinner.Message(mesg)
 	// msg("Downloading... "+ humanize.Bytes(wc.Total)+ " complete ")
 }
 
-// getSugDec ...
+// GetSugDec ... get suggest description
 func GetSugDec(sug *[]prompt.Suggest, text string) string {
-
 	if sug != nil {
 		for _, v := range *sug {
 			if v.Description == text {
@@ -1265,9 +1206,10 @@ func downld(id, target, filename, mimeType, path string) error {
 	if err := spinner.Frequency(300 * time.Millisecond); err != nil {
 		glog.Error("Spin run error", err.Error())
 	}
-	msg := fmt.Sprintf("Downloading %s", target)
+	fi := strings.Split(target, string(os.PathSeparator))
+	msg := fmt.Sprintf("Downloading %s", fi[len(fi)-1])
 	spinner.Suffix(msg)
-	msgs := fmt.Sprintf("...to %s %s", path, Brown("done"))
+	msgs := fmt.Sprintf("...to %s %s", path, aurora.Brown("done"))
 	spinner.StopMessage(msgs)
 	err = spinner.CharSet(yacspin.CharSets[50])
 	// handle the error
@@ -1338,11 +1280,6 @@ func downld(id, target, filename, mimeType, path string) error {
 		out.Close()
 		return err
 	}
-
-	// if _, err = io.Copy(out, resp.Body); err != nil {
-	// 	out.Close()
-	// 	return err
-	// }
 	//-----------------------------
 	glog.V(8).Info("this is download x3")
 	// The progress use the same line so print a new line once it's finished downloading
@@ -1366,23 +1303,16 @@ func downld(id, target, filename, mimeType, path string) error {
 	return nil
 }
 
-// download file by name
+// Download ... download file by name
 func (ii *ItemInfo) Download(path, cmd string) error {
 	//TODO: download file
-
-	//1 transfer file name to id
 	var id string
-	// if !strings.Contains(cmd, ">") {
-	// 	fmt.Printf(string(colorRed), "Wrong path format, please use \"h\" get help")
-	// 	return errors.New("Wrong path format, please use \"h\" get help")
-	// }
-	// fil := strings.Split(strings.Split(cmd, "d ")[1], ">")
-	if path == "" || cmd == ""{
+	if path == "" || cmd == "" {
 		fmt.Printf(string(colorRed), "Wrong path format, please use \"h\" get help")
 		return errors.New("Wrong path format, please use \"h\" get help")
 	}
 	// iD, err := ii.getSugId(AllSug, strings.TrimSuffix(fil[0], " "))
-	iD, err := ii.getSugId(AllSug, strings.TrimSuffix(cmd, " "))
+	iD, err := ii.getSugID(AllSug, strings.TrimSuffix(cmd, " "))
 	if err != nil {
 		fmt.Printf(string(colorRed), "file or dir not exist: "+err.Error())
 		glog.Errorln("file or dir not exist: " + err.Error())
@@ -1398,20 +1328,7 @@ func (ii *ItemInfo) Download(path, cmd string) error {
 // Downloadd file by id
 func Downloadd(path, cmd string) error {
 	//TODO: download file by id
-	//1 transfer file name to id
-	//2 check the id whether is file or folder
-	//3 start download
-
-	// err := downld(cmds[1], cmds[2], cmds[1])
-	// if err != nil {
-	// 	glog.Errorln("Download failed: ", err.Error())
-	// 	return err
-	// }
-	// if len(cmds) < 3 {
-	// 	return errors.New("command line lack param")
-	// }
-
-	if path == "" || cmd == ""{
+	if path == "" || cmd == "" {
 		fmt.Printf(string(colorRed), "Wrong path format, please input \"h\" get help")
 		return errors.New("Wrong path format, please input \"h\" get help")
 	}
@@ -1421,13 +1338,11 @@ func Downloadd(path, cmd string) error {
 		Fields("id, name, mimeType").
 		Do()
 	if err != nil {
-		// glog.("shit happened: ", err.Error())
-		// glog.Errorf("Unable to retrieve root: %v", err)
 		return err
 	}
 	if item.MimeType == "application/vnd.google-apps.folder" {
 		glog.V(6).Info("B7: ", path)
-		StartingDownload(cmd, path +string(os.PathSeparator)+item.Name)
+		StartingDownload(cmd, path+string(os.PathSeparator)+item.Name)
 	} else {
 		glog.V(6).Info("B7: ", path)
 		StartingDownload(cmd, path)
@@ -1435,6 +1350,7 @@ func Downloadd(path, cmd string) error {
 	return nil
 }
 
+// GetAllDriveItems ... get all items from folder
 func GetAllDriveItems(id, pageToken string, files *[]*drive.File) {
 
 	qString := "'" + id + "' in parents and trashed=false"
@@ -1470,7 +1386,7 @@ func generatorDownloader(id, path string, out, stop chan string) {
 		msg := fmt.Sprintf("   Getting %s information from server", id)
 		spinner.Suffix(msg)
 		spinner.StopCharacter("->")
-		msgs := fmt.Sprintf("... %s ", Brown("done"))
+		msgs := fmt.Sprintf("... %s ", aurora.Brown("done"))
 		spinner.StopMessage(msgs)
 		err = spinner.CharSet(yacspin.CharSets[9])
 		// handle the error
@@ -1480,31 +1396,35 @@ func generatorDownloader(id, path string, out, stop chan string) {
 
 		if err := spinner.Start(); err != nil {
 			glog.V(8).Info("Spin start error", err.Error())
-			// glog.Errorf("Spin start error %v", err)
-			// return err
 		}
 		//-----yacspin-----------------
 		files := make([]*drive.File, 0)
 		GetAllDriveItems(id, "", &files)
-		// glog.V(8).Info("B2: ", item.Files, len(item.Files))
 		if len(files) == 0 {
+			glog.V(8).Info("--B2: ", len(files))
 			fil, err := utils.StartSrv(drive.DriveScope).Files.Get(id).Do()
 			if err != nil {
 				glog.Error("file or dir not exist: ", err.Error())
 			}
 			switch fil.MimeType {
 			case "application/vnd.google-apps.shortcut":
-				spinner.StopFailMessage("   Google Drive Shortcut cannot be downloaded")
+				spinner.StopFailMessage("   Google Drive Shortcut be downloaded")
 				if err := spinner.StopFail(); err != nil {
-					glog.Error("B3 shortcut: ", err)
+					spinner.Stop()
+					glog.Error("Shortcut cannot be downloaded: ", err)
+					// stop <- "stop"
+					// return
 				}
-				stop <- "stop"
+				// stop <- "stop"
 			case "application/vnd.google-apps.folder":
-				spinner.StopFailMessage("   Empty folder cannot be downloaded")
+				spinner.StopFailMessage("   Empty folder be downloaded")
 				if err := spinner.StopFail(); err != nil {
+					spinner.Stop()
 					glog.V(8).Info("Try to downloading empty folder", err)
+					// stop <- "stop"
+					// return
 				}
-				stop <- "stop"
+				// stop <- "stop"
 			default:
 				//send id to out chan
 				glog.V(8).Info("B3 default: ", path+pthSep+fil.Name, fil.MimeType, fil.ShortcutDetails)
@@ -1516,39 +1436,40 @@ func generatorDownloader(id, path string, out, stop chan string) {
 				glog.V(8).Info("B3.1 default: ", pat)
 				// make a global spinner
 			}
+		} else {
 
-		}
-		//speed limit of google drive api 1000 requests per 100 seconds
-		rl := ratelimit.New(5) // per second 5 requests
-		prev := time.Now()
-		// strf = path
-		var pat string
-		var patt string
-		for _, file := range files {
-			// glog.V(8).Info("B4: ")
-			now := rl.Take()
-			if file.MimeType == "application/vnd.google-apps.folder" {
-				patt = pthSep + file.Name
-				// strd = strd + pthSep + file.Name
-				// glog.V(8).Info("B5: ", path + patt)
-				out <- path + patt
-				go generatorDownloader(file.Id, path+patt, out, stop)
-			} else {
-				// pat = strd + pthSep + file.Name + "-/-" + file.Id + "-/-" + file.MimeType + "-/-" + path
-				pat = path + patt + pthSep + file.Name + "-/-" +
-					file.Id + "-/-" + file.MimeType + "-/-" + path + patt
-				glog.V(8).Info("B6: ", pat)
-				glog.V(8).Info("B6-1: ", patt)
-				pat = strings.Replace(pat, patt, "", 1)
-				glog.V(8).Info("B6-2: ", pat)
-				// out <- path + pat
-				out <- pat
+			//speed limit of google drive api 1000 requests per 100 seconds
+			rl := ratelimit.New(5) // per second 5 requests
+			prev := time.Now()
+			// strf = path
+			var pat string
+			var patt string
+			for _, file := range files {
+				// glog.V(8).Info("B4: ")
+				now := rl.Take()
+				if file.MimeType == "application/vnd.google-apps.folder" {
+					patt = pthSep + file.Name
+					// strd = strd + pthSep + file.Name
+					// glog.V(8).Info("B5: ", path + patt)
+					out <- path + patt
+					go generatorDownloader(file.Id, path+patt, out, stop)
+				} else {
+					// pat = strd + pthSep + file.Name + "-/-" + file.Id + "-/-" + file.MimeType + "-/-" + path
+					pat = path + patt + pthSep + file.Name + "-/-" +
+						file.Id + "-/-" + file.MimeType + "-/-" + path + patt
+					// glog.V(8).Info("B6-1: ", patt)
+					pat = strings.Replace(pat, patt, "", 1)
+					// glog.V(8).Info("B6-2: ", pat)
+					out <- pat
+				}
+				now.Sub(prev)
+				prev = now
 			}
-			now.Sub(prev)
-			prev = now
-		}
-		if err := spinner.Stop(); err != nil {
-			glog.Errorf("Spinner err: %v", err)
+			if err := spinner.Stop(); err != nil {
+				spinner.Stop()
+				glog.Errorf("Spinner err: %v", err)
+			}
+
 		}
 	}()
 }
@@ -1556,13 +1477,10 @@ func generatorDownloader(id, path string, out, stop chan string) {
 func downloader(id int, c chan string) {
 	for n := range c {
 		time.Sleep(time.Second)
-		// fmt.Printf("Downloader %d received %s\n",
-		// 	id, n)
 		if strings.Contains(n, "-/-") {
 			target := strings.Split(n, "-/-")
 			glog.V(8).Infoln("------n >: ", target[3])
 			// glog.V(8).Infoln("Starting downloading...", target[0], " ", target[1])
-			//3 start download
 			err := downld(target[1], target[0], target[1], target[2], target[3])
 			if err != nil {
 				glog.Errorln("Download failed: ", err.Error())
@@ -1576,7 +1494,6 @@ func downloader(id int, c chan string) {
 					glog.Errorln("Create folder failed ", err.Error())
 				}
 			}
-			// err := os.MkdirAll(n, os.ModePerm)
 		}
 	}
 }
@@ -1587,12 +1504,12 @@ func createDownloader(id int) chan<- string {
 	return c
 }
 
+// StartingDownload ... starting download
 func StartingDownload(id, path string) {
 	glog.V(6).Info("download files: ", id, " : ", path)
 	out := make(chan string)
 	stop := make(chan string)
-	// var fd string
-	// var fls string
+
 	generatorDownloader(id, path, out, stop)
 	var downloader = createDownloader(0)
 	var i, j int
@@ -1617,16 +1534,11 @@ func StartingDownload(id, path string) {
 			// do task
 			values = values[1:]
 			i++
-		// case <-time.After(800 * time.Millisecond):
-		// 	fmt.Println("timeout")
 		case <-tick.C:
 			// if buffer =0 and task count = full buffer size then jump out
 			if len(values) == 0 && i == j {
 				return
 			}
-			// case <-tm:
-			// 	fmt.Println("bye")
-			// return
 		case <-stop:
 			return
 		}
@@ -1646,13 +1558,6 @@ func visit(files *[]string, isDir bool) filepath.WalkFunc {
 				// glog.V(8).Info(info.Mode().Perm().String)
 				glog.Error(err)
 			}
-			// if strings.HasPrefix(info.Name(), ".") {
-			// 	// glog.V(8).Info(path)
-			// 	return nil
-			// }
-			// if info.IsDir() && noDir {
-			// 	return nil
-			// }
 			if !info.IsDir() && isDir {
 				return nil
 			}
@@ -1663,7 +1568,7 @@ func visit(files *[]string, isDir bool) filepath.WalkFunc {
 	}
 }
 
-// path is local path, noDir is switch list folder
+// GetLocalItems ... path is local path, noDir is switch list or folder
 func GetLocalItems(path string, isDir bool, files *[]string) {
 	// var files []string
 
@@ -1677,7 +1582,7 @@ func GetLocalItems(path string, isDir bool, files *[]string) {
 	// return files
 }
 
-// Upload function
+// UpLod ... Upload function
 func (ii *ItemInfo) UpLod(file, scope string) {
 	//-----yacspin-----------------
 	spinner, err := yacspin.New(*cfg)
@@ -1689,7 +1594,7 @@ func (ii *ItemInfo) UpLod(file, scope string) {
 	}
 	// msg := fmt.Sprintf("   Getting %s information from server", id)
 	// spinner.Suffix(msg)
-	msgs := fmt.Sprintf("... %s ", Brown("done"))
+	msgs := fmt.Sprintf("... %s ", aurora.Brown("done"))
 	spinner.StopMessage(msgs)
 	err = spinner.CharSet(yacspin.CharSets[29])
 	// handle the error
@@ -1699,8 +1604,6 @@ func (ii *ItemInfo) UpLod(file, scope string) {
 
 	if err := spinner.Start(); err != nil {
 		glog.V(8).Info("Spin start error", err.Error())
-		// glog.Errorf("Spin start error %v", err)
-		// return err
 	}
 	//-----yacspin-----------------
 	// var tmpId string
@@ -1711,15 +1614,13 @@ func (ii *ItemInfo) UpLod(file, scope string) {
 	GetLocalItems(file, false, &files)
 	for _, file := range files {
 		// home, _ := os.UserHomeDir()
-		// fmt.Println("FILE: ",file, "  ",strings.Replace(file, home+string(os.PathSeparator), "", 1),  "===== ", len(files))
 		dir, fil := filepath.Split(file)
-		// glog.V(8).Info("dir: ", dir, "   file: ", fil, " ----: ", utils.IsDir(file))
 
 		if utils.IsDir(file) {
 			// glog.V(8).Info(ii.ItemId)
 			qString := "name ='" + fil +
 				"' and mimeType = 'application/vnd.google-apps.folder' and '" +
-				ii.ItemId + "' in parents and trashed = false"
+				ii.ItemID + "' in parents and trashed = false"
 			// glog.V(5).Infoln("qString: ", qString)
 			r, err := utils.StartSrv(scope).Files.List().
 				Q(qString).
@@ -1738,15 +1639,14 @@ func (ii *ItemInfo) UpLod(file, scope string) {
 					glog.V(8).Info("Try to upload folder failed", err)
 				}
 				return
-			} else {
-				parents, _, err := createInDir(fil, dir, ii.ItemId)
-				if err != nil {
-					glog.Error(err)
-					return
-				}
-				// tmpId = dr.Id
-				parns = parents
 			}
+			parents, _, err := createInDir(fil, dir, ii.ItemID)
+			if err != nil {
+				glog.Error(err)
+				return
+			}
+			// tmpId = dr.Id
+			parns = parents
 		} else {
 			if spinner.Active() {
 				if err := spinner.Pause(); err != nil {
@@ -1775,6 +1675,7 @@ func (ii *ItemInfo) UpLod(file, scope string) {
 	}
 }
 
+// Share ... share files or folder
 func (ii *ItemInfo) Share(idorName, types, role, gmail, domain string, isByName bool) {
 	// If the type is user or group, provide an emailAddress. If the type is domain, provide a domain.
 	// Type : user, group, domain, anyone - all are small letter
@@ -1792,7 +1693,7 @@ func (ii *ItemInfo) Share(idorName, types, role, gmail, domain string, isByName 
 	}
 	// msg := fmt.Sprintf("   Getting %s information from server", id)
 	// spinner.Suffix(msg)
-	msgs := fmt.Sprintf("...Share %s %s ", idorName, Brown("done"))
+	msgs := fmt.Sprintf("...Share %s %s ", idorName, aurora.Brown("done"))
 	spinner.StopMessage(msgs)
 	err = spinner.CharSet(yacspin.CharSets[29])
 	// handle the error
@@ -1809,7 +1710,7 @@ func (ii *ItemInfo) Share(idorName, types, role, gmail, domain string, isByName 
 	//-----name to id--------------
 	var id string
 	if isByName {
-		iD, err := ii.getSugId(DirSug, strings.TrimSuffix(idorName, " "))
+		iD, err := ii.getSugID(DirSug, strings.TrimSuffix(idorName, " "))
 		if err != nil {
 			spinner.StopFailMessage("   File or dir not exist, maybe file/folder name include space, try shared command by file/folder ID")
 			if err := spinner.StopFail(); err != nil {
@@ -1822,7 +1723,7 @@ func (ii *ItemInfo) Share(idorName, types, role, gmail, domain string, isByName 
 	} else {
 		id = idorName
 	}
-	//-----name to id--------------
+
 	var permisn *drive.Permission = new(drive.Permission)
 	permisn.EmailAddress = gmail
 	permisn.Role = role
@@ -1856,6 +1757,7 @@ func (ii *ItemInfo) Share(idorName, types, role, gmail, domain string, isByName 
 	}
 }
 
+// Commnet ... comment for file or folder
 func (ii *ItemInfo) Commnet(idorName, subcommand, content, updContent string, isByName bool) {
 	cmtInfo := utils.GetSugInfo()
 	//-----yacspin-----------------
@@ -1885,7 +1787,7 @@ func (ii *ItemInfo) Commnet(idorName, subcommand, content, updContent string, is
 	//-----name to id--------------
 	var id string
 	if isByName {
-		iD, err := ii.getSugId(DirSug, strings.TrimSuffix(idorName, " "))
+		iD, err := ii.getSugID(DirSug, strings.TrimSuffix(idorName, " "))
 		if err != nil {
 			spinner.StopFailMessage("   File or dir not exist, maybe file/folder name include space, try shared command by file/folder ID")
 			if err := spinner.StopFail(); err != nil {
@@ -1914,7 +1816,7 @@ func (ii *ItemInfo) Commnet(idorName, subcommand, content, updContent string, is
 			glog.Errorf("Unable to comment item: %v", errs)
 		}
 		// glog.V(8).Info("commentid: ",cmt.Id, " : ", cmt.Content)
-		msgs := fmt.Sprintf("...Create Comment %s %s ", cmt.Content, Brown("done"))
+		msgs := fmt.Sprintf("...Create Comment %s %s ", cmt.Content, aurora.Brown("done"))
 		spinner.StopMessage(msgs)
 	case "-d", "--d":
 		errs := utils.StartSrv(drive.DriveScope).Comments.
@@ -1927,7 +1829,7 @@ func (ii *ItemInfo) Commnet(idorName, subcommand, content, updContent string, is
 			}
 			glog.Errorf("Unable to delete comment item: %v", errs)
 		}
-		msgs := fmt.Sprintf("...Delete Comment %s %s ", content, Brown("done"))
+		msgs := fmt.Sprintf("...Delete Comment %s %s ", content, aurora.Brown("done"))
 		spinner.StopMessage(msgs)
 	case "-u", "--u":
 		var comment *drive.Comment = new(drive.Comment)
@@ -1942,12 +1844,12 @@ func (ii *ItemInfo) Commnet(idorName, subcommand, content, updContent string, is
 			}
 			glog.Errorf("Unable to comment item: %v", errs)
 		}
-		msgs := fmt.Sprintf("...Comment %s %s ", content, Brown("update done"))
+		msgs := fmt.Sprintf("...Comment %s %s ", content, aurora.Brown("update done"))
 		spinner.StopMessage(msgs)
 	case "-l", "--l":
 		cmt, errs := utils.StartSrv(drive.DriveScope).Comments.List(id).PageSize(100).Fields("*").Do()
 		for _, value := range cmt.Comments {
-			v := fmt.Sprintf("Comment ID: %s  Content: %s\n", Brown(value.Id), Brown(value.Content))
+			v := fmt.Sprintf("Comment ID: %s  Content: %s\n", aurora.Brown(value.Id), aurora.Brown(value.Content))
 			fmt.Println(v)
 			s := prompt.Suggest{Text: value.Id, Description: value.Content}
 			CmtListSug = cmtInfo(s, ii.DeleteItemIs, 0)
@@ -1959,24 +1861,24 @@ func (ii *ItemInfo) Commnet(idorName, subcommand, content, updContent string, is
 			}
 			glog.Errorf("Unable to list item comment: %v", errs)
 		}
-		msgs := fmt.Sprintf("...Comment %s %s ", id, Brown("list done"))
+		msgs := fmt.Sprintf("...Comment %s %s ", id, aurora.Brown("list done"))
 		spinner.StopMessage(msgs)
 	case "-g", "--g":
 		cmt, errs := utils.StartSrv(drive.DriveScope).Comments.Get(id, content).Fields("*").Do()
 
 		v := fmt.Sprintf("Comment ID: %s  Content: %s  Author: %s  CreatedTime: %s\n",
-			Brown(cmt.Id),
-			Brown(cmt.Content),
-			Brown(cmt.Author.DisplayName),
-			Brown(cmt.CreatedTime))
+			aurora.Brown(cmt.Id),
+			aurora.Brown(cmt.Content),
+			aurora.Brown(cmt.Author.DisplayName),
+			aurora.Brown(cmt.CreatedTime))
 		fmt.Println(v)
-			for key, value := range cmt.Replies{
-				v := fmt.Sprintf("Comment ID: %s  Content: %s\n",
-					Brown(key),
-					Brown(value))
-				fmt.Println(v)
+		for key, value := range cmt.Replies {
+			v := fmt.Sprintf("Comment ID: %s  Content: %s\n",
+				aurora.Brown(key),
+				aurora.Brown(value))
+			fmt.Println(v)
 
-			}
+		}
 		if errs != nil {
 			spinner.StopFailMessage("   Unable to get item comment")
 			if err := spinner.StopFail(); err != nil {
@@ -1984,7 +1886,7 @@ func (ii *ItemInfo) Commnet(idorName, subcommand, content, updContent string, is
 			}
 			glog.Errorf("Unable to get item comment: %v", errs)
 		}
-		msgs := fmt.Sprintf("...Comment %s %s ", "detail ", Brown("list done"))
+		msgs := fmt.Sprintf("...Comment %s %s ", "detail ", aurora.Brown("list done"))
 		spinner.StopMessage(msgs)
 	}
 
@@ -1993,519 +1895,6 @@ func (ii *ItemInfo) Commnet(idorName, subcommand, content, updContent string, is
 	}
 }
 
-//------------------------------TESTING BELOW
-
-// func start(){
-// 	glog.V(8).Info("this is start")
-// }
-
-// func fail(){
-// 	glog.V(8).Info("this is fail")
-// }
-// func success(){
-// 	glog.V(8).Info("this is success")
-// }
+// Lo ... is a testing function
 func Lo() {
-	// comment
-	// //-----yacspin-----------------
-	// spinner, err := yacspin.New(*cfg)
-	// if err != nil {
-	// 	glog.Error("Spin run error", err.Error())
-	// }
-	// if err := spinner.Frequency(100 * time.Millisecond); err != nil {
-	// 	glog.Error("Spin run error", err.Error())
-	// }
-	// // msg := fmt.Sprintf("   Getting %s information from server", id)
-	// // spinner.Suffix(msg)
-	// msgs := fmt.Sprintf("...Share %s %s ", idorName, Brown("done"))
-	// spinner.StopMessage(msgs)
-	// err = spinner.CharSet(yacspin.CharSets[29])
-	// // handle the error
-	// if err != nil {
-	// 	glog.V(8).Info("Spin run error", err.Error())
-	// }
-
-	// if err := spinner.Start(); err != nil {
-	// 	glog.V(8).Info("Spin start error", err.Error())
-	// 	// glog.Errorf("Spin start error %v", err)
-	// 	// return err
-	// }
-	// //-----yacspin-----------------
-	// //-----name to id--------------
-	// var id string
-	// if isByName {
-	// 	iD, err := ii.getSugId(DirSug, strings.TrimSuffix(idorName, " "))
-	// 	if err != nil {
-	// 		spinner.StopFailMessage("   File or dir not exist, maybe file/folder name include space, try shared command by file/folder ID")
-	// 		if err := spinner.StopFail(); err != nil {
-	// 			glog.V(8).Info(" File or dir not exist", err)
-	// 		}
-	// 		glog.Errorln("file or dir not exist: ", err.Error())
-	// 		return
-	// 	}
-	// 	id = iD
-	// } else {
-	// 	id = idorName
-	// }
-	// //-----name to id--------------
-	// var comment *drive.Comment = new(drive.Comment)
-	// comment.Content = " testeinhsdaasdzxjjk回调函数"
-	// _, errs := utils.StartSrv(drive.DriveScope).Comments.Create("", comment).Do()
-
-	// home, _ := os.UserHomeDir()
-	// to := fmt.Sprint(home, string(os.PathSeparator),
-	// 	".local", string(os.PathSeparator),
-	// 	"goclue", string(os.PathSeparator),
-	// 	"credentials.json")
-	// if utils.CheckCredentials(fail, success){
-	// 	start()
-	// }else{
-	// 	utils.Movefile("/home/roley/credentials.json", to, fail, success)
-	// }
-	//1. chenck creadential
-	//2. if true > run init
-	//3. if false > run move function
-	//4. if move ok > callback init
-
-	// DomainSug = domainInfo(prompt.Suggest{Text: "www.roleyzhang.com", Description: ""})
-	// glog.V(8).Info(utils.GetAppHome())
-
-	//----Load mail & domain Sug
-	//----mail part
-	//----domain part
-	// domainInfo := getSugInfo()
-	// domain, _ := ioutil.ReadFile(utils.GetAppHome() + string(os.PathSeparator) + "domain.json")
-	// ddata := []prompt.Suggest{}
-	// _ = json.Unmarshal([]byte(domain), &ddata)
-
-	// for _, value := range ddata {
-	// 	p := prompt.Suggest{Text: value.Text, Description: value.Description}
-	// 	DomainSug = domainInfo(p)
-	// 	// fmt.Println("Product Id: ", value.Text)
-	// 	// fmt.Println("Quantity: ", value.Description)
-	// }
-
-	// file, _ := json.MarshalIndent(GmailSug, "", " ")
-	// _ = ioutil.WriteFile(utils.GetAppHome()+pthSep+"mail.json", file, 0644)
-
-	// file2, _ := json.MarshalIndent(DomainSug, "", " ")
-	// _ = ioutil.WriteFile(utils.GetAppHome()+pthSep+"doman.json", file2, 0644)
-	// var permisn *drive.Permission = new(drive.Permission)
-	// permisn.EmailAddress = ""//"zhangroley@gmail.com"
-	// permisn.Role = "writer"
-	// permisn.Type = "domain"//"user"
-	// permisn.Domain = "www.roleyzhang.com"
-
-	// permision, err := utils.StartSrv(drive.DriveScope).
-	// 	Permissions.Create("1HDsJ0dWyP7_PFTV7dNHlS_j5L_Fid65bL63j6O-Rn5U", permisn).Do()
-
-	// if err != nil{
-	// 	glog.Errorf("Unable to create share item: %v", err)
-	// }
-
-	// glog.V(8).Infof("ID: %s\n Role: %s\n Email: %s\n DisplayName: %s\n Domain: %s\n Type: %s\n",
-	// 	permision.Id, permision.Role, permision.EmailAddress, permision.DisplayName, permision.Domain, permision.Type)
-
-	// item, err := utils.StartSrv(drive.DriveScope).Permissions.
-	// 	List("0B4_B23yaHaiYVkVlcGpOTl9WZVU").Do()
-
-	// // 0B4_B23yaHaiYdk9uNWVYRlE3UkE
-	// // 1wbmcPMimOknB5D4eQ9QuS6bXuFGlZ2B-
-
-	// // 15b0-LD0DwN4Z7zs08ClVuHwCojcPUgKP
-	// // 0B4_B23yaHaiYVkVlcGpOTl9WZVU
-	// // Files.Get(id).
-	// // // Files.Get("root").
-	// // Fields("id, name, mimeType, parents, owners, createdTime").
-	// // Do()
-	// if err != nil {
-	// 	println("shit happened: ", err.Error())
-	// 	glog.Errorf("Unable to get share info: %v", err)
-	// 	// return nil
-	// }
-	// for _, value := range item.Permissions {
-	// 	glog.V(8).Infof("ID: %s\n allowDiscovery: %t\n displayName: %s\n domain: %s\n email: %s\n  expirationTime: %s\n  role: %s\n  type: %s\n",
-	// 		value.Id, value.AllowFileDiscovery, value.DisplayName, value.Domain, value.EmailAddress, value.ExpirationTime, value.Role, value.Type)
-	// 	for _, valu := range value.PermissionDetails {
-	// 		glog.V(8).Infof("role: %s\n Inherited: %t\n PermissionType: %s\n InheritedFrom: %s\n",
-	// 			valu.Role, valu.Inherited, valu.PermissionType, valu.InheritedFrom)
-	// 	}
-	// }
 }
-
-// func Lo() {
-// 	//-----------------------------
-// 	var total int64 = 1024 * 1024 * 1500
-// 	reader := io.LimitReader(rand.Reader, total)
-
-// 	p := mpb.New(
-// 		mpb.WithWidth(60),
-// 		mpb.WithRefreshRate(180*time.Millisecond),
-// 	)
-
-// 	bar := p.AddBar(total, mpb.BarStyle("[=>-|"),
-// 		mpb.PrependDecorators(
-// 			decor.CountersKibiByte("% .2f / % .2f"),
-// 		),
-// 		mpb.AppendDecorators(
-// 			decor.EwmaETA(decor.ET_STYLE_GO, 90),
-// 			decor.Name(" ] "),
-// 			decor.EwmaSpeed(decor.UnitKiB, "% .2f", 60),
-// 		),
-// 	)
-
-// 	// create proxy reader
-// 	proxyReader := bar.ProxyReader(reader)
-// 	defer proxyReader.Close()
-
-// 	// copy from proxyReader, ignoring errors
-// 	_, err := io.Copy(ioutil.Discard, proxyReader)
-// 	if err != nil{
-// 		glog.V(8).Info(err)
-// 	}
-
-// 	p.Wait()
-// 	//-----------------------------
-// }
-//-------------phase 6...
-// var spinChars = `|/-\`
-
-// type Spinner struct {
-// 	message string
-// 	i       int
-// }
-
-// func NewSpinner(message string) *Spinner {
-// 	return &Spinner{message: message}
-// }
-
-// func (s *Spinner) Tick() {
-// 	fmt.Printf("%s %c \r", s.message, spinChars[s.i])
-// 	s.i = (s.i + 1) % len(spinChars)
-// }
-
-// func isTTY() bool {
-// 	fi, err := os.Stdout.Stat()
-// 	if err != nil {
-// 		return false
-// 	}
-// 	return fi.Mode()&os.ModeCharDevice != 0
-// }
-
-// func Lo() {
-// 	flag.Parse()
-// 	s := NewSpinner("working...")
-// 	isTTY := isTTY()
-// 	// Ps.Pre = "                      [$1 $2]"
-// 	for i := 0; i < 100; i++ {
-// 		fmt.Printf("\rOn %d/10", i)
-// 		if isTTY {
-// 			s.Tick()
-// 		}
-// 		time.Sleep(100 * time.Millisecond)
-// 	}
-// 	Ps.SetPrefix(FixlongStringRunes(0),1)
-// }
-
-// func FixlongStringRunes(n int) string {
-// 	b := make([]byte, n)
-// 	for i := range b {
-// 		b[i] = ' '
-// 	}
-// 	return string(b)
-// }
-
-//-------------phase 5...
-//-------------phase 4
-// func recursiveCall(id string, chF, chD chan string) {
-// 	// glog.V(8).Info("B: ")
-// 	// product += num
-
-// 	// if num == 1 {
-// 	//     ch <- product
-// 	//     return
-// 	// }
-// 	// pthSep := string(os.PathSeparator)
-// 	qString := "'" + id + "' in parents"
-// 	glog.V(8).Info("B1: ", qString)
-// 	item, err := utils.StartSrv(drive.DriveScope).Files.List().
-// 		Q(qString).PageSize(40).
-// 		Fields("nextPageToken, files(id, name, mimeType)").
-// 		Do()
-// 	// glog.V(8).Info("B2: ", item.Files)
-// 	if err != nil {
-// 		glog.Errorln("file or dir not exist: ", err.Error())
-// 	}
-// 	// glog.V(8).Info("B3: ")
-// 	for _, file := range item.Files {
-// 		// glog.V(8).Info("B4: ")
-// 		if file.MimeType == "application/vnd.google-apps.folder" {
-// 			// glog.V(8).Info("B5: ")
-// 			chD <- file.Id + " : " + file.Name
-// 			glog.V(8).Info("D----: ", file.Id, file.Name )
-// 			go recursiveCall(file.Id, chF, chD)
-// 		} else {
-// 			// glog.V(8).Info("B6: ")
-// 			chF <- file.Id + " : " + file.Name
-// 			// glog.V(8).Info("F: ", file.Id, file.Name )
-// 		}
-// 	}
-// 	// glog.V(8).Info("B7: ")
-
-// }
-
-// func Lo() {
-// 	chF := make(chan string, 40)
-// 	chD := make(chan string, 40)
-// 	go recursiveCall("19YMYxawcjse0IcqKHrJYyx7yDEA_SLEA", chF, chD)
-// 	for n := range chF {
-// 		go func(n string) {
-// 			// file := <-n
-// 			glog.V(8).Info("F: ", n)
-// 		}(n)
-
-// 	}
-// 	for n := range chD {
-// 		go func(n string) {
-// 			// file := <-n
-// 			// glog.V(8).Info("F: ", n)
-// 			glog.V(8).Info("D: ", n)
-// 		}(n)
-// 	}
-
-// 	// close(chF)
-// 	// close(chD)
-// 	// for{
-// 	// 	file := <-chF
-// 	// 	folder := <-chD
-// 	// 	glog.V(8).Info("F: ", file , " D: ", folder)
-// 	// 	// close(chF)
-// 	// 	// close(chD)
-// 	// }
-// }
-
-//-------------phase 3
-// func downloader(id int, c chan string) {
-// 	for n := range c {
-// 		time.Sleep(time.Second)
-// 		if id ==0 {
-// 			glog.V(8).Infoln("Receiced cd: ", n)
-// 		}
-// 		if id ==1 {
-// 			glog.V(8).Infoln("Receiced cf: ", n)
-
-// 		}
-// 	}
-// }
-
-// func createDownloader(id int) chan<- string{
-// 	c := make(chan string)
-// 	go downloader(id, c)
-// 	return c
-// }
-
-// func checkDrvData(id string) (c1, c2 chan string) {
-// 	cd := make(chan string,40)
-// 	cf := make(chan string,40)
-// 	// c2 := make(chan string)
-// 	qString := "'" + id + "' in parents"
-// 	item, err := utils.StartSrv(drive.DriveScope).Files.List().
-// 		Q(qString).PageSize(40).
-// 		Fields("nextPageToken, files(id, name, mimeType)").
-// 		Do()
-// 	if err != nil {
-// 		glog.Errorln("file or dir not exist: ", err.Error())
-// 		// return nil
-// 	}
-// 	for _, file := range item.Files {
-// 		if file.MimeType == "application/vnd.google-apps.folder" {
-// 			// pat := path + pthSep + file.Name
-// 			// glog.V(8).Info("D: ", pat)
-// 			// folders = append(folders, pat)
-// 			// if err != nil {
-// 			// 	glog.Errorln("file or dir not exist: ", err.Error())
-// 			// 	return nil, err
-// 			// }
-// 			glog.V(8).Info("D: ", file.Id+":"+file.Name)
-// 			cd <- file.Id + ":" + file.Name
-// 			go checkDrvData(file.Id )
-// 		} else {
-// 			// files = filesFromSrv(path, file.Id, file.Name)
-// 			glog.V(8).Info("F: ", file.Id+":"+file.Name)
-// 			Ps.SetPrefix(file.Id + ":" + file.Name)
-// 			// files = append(files, path+pthSep+file.Name)
-// 			cf <- file.Id + ":" + file.Name
-// 		}
-// 	}
-// 	return cd, cf
-// }
-
-// func Lo(){
-
-// 	// checkDrvData("19YMYxawcjse0IcqKHrJYyx7yDEA_SLEA")
-// 	cd,cf := checkDrvData("19YMYxawcjse0IcqKHrJYyx7yDEA_SLEA")
-// 	var downloader = createDownloader(0)
-// 	var downloader2= createDownloader(1)
-
-// 	var values []string
-// 	var values2 []string
-// 	var activeW chan <- string
-// 	var activeV string
-// 	var activeW2 chan <- string
-// 	var activeV2 string
-// 	if len(values) >0 {
-// 		activeW = downloader
-// 		activeV = values[0]
-// 	}
-// 	if len(values2) >0 {
-// 		activeW2 = downloader2
-// 		activeV2 = values2[0]
-// 	}
-// 	tick := time.Tick(time.Second)
-
-// 	for {
-// 		select {
-// 		case n:= <-cd:
-// 			glog.V(8).Infoln("Receiced cd: ", n)
-// 			values = append(values, n)
-// 		case n:= <-cf:
-// 			glog.V(8).Infoln("Receiced cf: ", n)
-// 			values2 = append(values2, n)
-// 		case activeW <- activeV:
-// 			values = values[1:]
-// 		case activeW2 <- activeV2:
-// 			values2 = values2[1:]
-// 		case <-tick:
-// 			fmt.Println(
-// 				"queue len =", len(values), len(values2))
-
-// 		}
-// 	}
-// }
-// func Select() {
-// 	Ps.SetPrefix("SELECT")
-// // 	var c1, c2 chan int
-// // 	// n1:= <- c1
-// // 	// n2:= <- c2
-// // 	select {
-// // 	case n := <-c1:
-// // 		glog.V(8).Info("receive from c1: ", n)
-// // 	case n := <-c2:
-// // 		glog.V(8).Info("receive from c2: ", n)
-// // 	default:
-// // 		glog.V(8).Info("receive from no one: ")
-
-// // 	}
-
-// }
-
-/*
-async download method
-1. query function use go routine return task, if task failed then write into log
-2. use select to handle query successful task, which query task return firstly, then run download task
-*/
-//-------------phase 2
-// func doDownloader(id int, c chan int, wg *sync.WaitGroup) {
-// 	for  n := range c {
-// 		glog.V(8).Infof("Downloader %d receive %c\n", id, n)
-// 		// go func(){done <- true}()
-// 		Ps.SetPrefix(strconv.Itoa(n)+ strconv.Itoa(id))
-// 		wg.Done()
-// 	}
-// }
-
-// type downloader struct  {
-// 	in chan int
-// 	// done chan bool
-// 	wg *sync.WaitGroup
-// }
-
-// // create downloader channels
-// func createDownloader(id int, wg *sync.WaitGroup) downloader{
-// 	w := downloader{
-// 		in: make(chan int),
-// 		wg: wg,
-// 	}
-// 	go doDownloader(id, w.in, wg)
-// 	return w
-// }
-
-// // lo ...
-// func Lo() {
-// 	glog.V(8).Info("this is Lo Testing")
-// 	var wg sync.WaitGroup
-// 	wg.Add(20)
-// 	var downloaders [10]downloader
-// 	for i := 0; i < 10; i++ {
-// 		// channels[i] = make(chan int)
-// 		// go downloader(i, channels[i])
-// 		downloaders[i] = createDownloader(i, &wg)
-// 	}
-// 	for i, downloader := range downloaders {
-// 		downloader.in <- 'a' + i
-// 	}
-// 	for i, downloader := range downloaders {
-// 		downloader.in <- 'A' + i
-// 	}
-// 	wg.Wait()
-// }
-
-//-------------phase 1
-// func downloader(id int, c chan int) {
-// 	// for {
-// 	// 	// n := <-c
-// 	// 	glog.V(8).Infof("Downloader %d receive %c\n", id, <-c)
-// 	// }
-// 	for  n := range c {
-// 		// n, ok := <-c
-// 		// if !ok {
-// 		// 	break
-// 		// }
-// 		glog.V(8).Infof("Downloader %d receive %c\n", id, n)
-// 	}
-// }
-
-// // create downloader channels
-// func createDownloader(id int) chan int {
-// 	c := make(chan int)
-// 	// go func() {
-// 	// 	for {
-// 	// 		glog.V(8).Infof("Downloader %d receive %c\n", id, <-c)
-// 	// 	}
-// 	// }()
-// 	go downloader(id, c)
-// 	return c
-// }
-
-// // create bufferedChannel
-// func BufferedChannel() {
-// 	glog.V(8).Infof("BufferedChannel:")
-// 	c := make(chan int, 3)
-// 	go downloader(0, c)
-// 	c <- 'a'
-// 	c <- 'b'
-// 	c <- 'c'
-// 	c <- 'd'
-// 	close(c)
-// }
-
-// // lo ...
-// func Lo() {
-// 	glog.V(8).Info("this is Lo Testing")
-// 	var channels [10]chan int
-// 	for i := 0; i < 10; i++ {
-// 		// channels[i] = make(chan int)
-// 		// go downloader(i, channels[i])
-// 		channels[i] = createDownloader(i)
-// 	}
-// 	for i := 0; i < 10; i++ {
-// 		channels[i] <- 'a' + i
-// 	}
-// 	for i := 0; i < 10; i++ {
-// 		channels[i] <- 'A' + i
-// 	}
-// 	// c := make(chan int)
-// 	// c <- 1
-// 	// c <- 2
-// 	time.Sleep(time.Millisecond)
-// }

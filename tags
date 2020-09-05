@@ -1,0 +1,148 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_OUTPUT_FILESEP	slash	/slash or backslash/
+!_TAG_OUTPUT_MODE	u-ctags	/u-ctags or e-ctags/
+!_TAG_PROGRAM_AUTHOR	Universal Ctags Team	//
+!_TAG_PROGRAM_NAME	Universal Ctags	/Derived from Exuberant Ctags/
+!_TAG_PROGRAM_URL	https://ctags.io/	/official site/
+!_TAG_PROGRAM_VERSION	0.0.0	/a3c87ab5/
+AllSug	cmd/cmd.go	/^var AllSug *[]prompt.Suggest$/;"	v	package:cmd	typeref:typename:*[]prompt.Suggest
+Amount	cmd/cmd.go	/^	Amount  uint64$/;"	m	struct:cmd.WriteCounter	typeref:typename:uint64
+Callback	utils/utils.go	/^type Callback func()$/;"	t	package:utils	typeref:typename:func()
+Check	utils/utils.go	/^func Check(path string, fail Callback, success Callback) bool {$/;"	f	package:utils	typeref:typename:bool
+CheckCredentials	utils/utils.go	/^func CheckCredentials(fail Callback, success Callback) {$/;"	f	package:utils
+ClearDownloadMap	utils/utils.go	/^func ClearDownloadMap(m map[string]string) {$/;"	f	package:utils
+CmtListSug	cmd/cmd.go	/^var CmtListSug *[]prompt.Suggest$/;"	v	package:cmd	typeref:typename:*[]prompt.Suggest
+CommentSug	cmd/cmd.go	/^var CommentSug *[]prompt.Suggest$/;"	v	package:cmd	typeref:typename:*[]prompt.Suggest
+Commnet	cmd/cmd.go	/^func (ii *ItemInfo) Commnet(idorName, subcommand, content, updContent string, isByName bool) {$/;"	f	struct:cmd.ItemInfo
+CreateDir	cmd/cmd.go	/^func (ii *ItemInfo) CreateDir(name string) (*drive.File, error) {$/;"	f	struct:cmd.ItemInfo	typeref:typename:(*drive.File, error)
+CreateInDir	cmd/cmd.go	/^func CreateInDir() func(name, path, parentId string) (map[string]string, *drive.File, error) {$/;"	f	package:cmd	typeref:typename:func(name, path, parentId string) (map[string]string, *drive.File, error)
+DeleteItemIs	cmd/cmd.go	/^	DeleteItemIs string$/;"	m	struct:cmd.ItemInfo	typeref:typename:string
+DirSug	cmd/cmd.go	/^var DirSug *[]prompt.Suggest$/;"	v	package:cmd	typeref:typename:*[]prompt.Suggest
+DomainSug	cmd/cmd.go	/^var DomainSug *[]prompt.Suggest$/;"	v	package:cmd	typeref:typename:*[]prompt.Suggest
+Download	cmd/cmd.go	/^func (ii *ItemInfo) Download(path, cmd string) error {$/;"	f	struct:cmd.ItemInfo	typeref:typename:error
+Downloadd	cmd/cmd.go	/^func Downloadd(path, cmd string) error {$/;"	f	package:cmd	typeref:typename:error
+Exists	utils/utils.go	/^func Exists(name string) bool {$/;"	f	package:utils	typeref:typename:bool
+FileSug	cmd/cmd.go	/^var FileSug *[]prompt.Suggest$/;"	v	package:cmd	typeref:typename:*[]prompt.Suggest
+FolderId	cmd/cmd.go	/^	FolderId string$/;"	m	struct:cmd.PromptStyle	typeref:typename:string
+Gap	cmd/cmd.go	/^	Gap      string$/;"	m	struct:cmd.PromptStyle	typeref:typename:string
+GetAllDriveItems	cmd/cmd.go	/^func GetAllDriveItems(id, pageToken string, files *[]*drive.File) {$/;"	f	package:cmd
+GetAppHome	utils/utils.go	/^func GetAppHome() string {$/;"	f	package:utils	typeref:typename:string
+GetFilesAndFolders	utils/utils.go	/^func GetFilesAndFolders(id, path string) (files map[string]string, folders []string, err error) /;"	f	package:utils	typeref:typename:(files map[string]string, folders []string, err error)
+GetLocalItems	cmd/cmd.go	/^func GetLocalItems(path string, isDir bool, files *[]string) {$/;"	f	package:cmd
+GetLocalPathInfo	utils/utils.go	/^func GetLocalPathInfo() func(prompt prompt.Suggest) *[]prompt.Suggest {$/;"	f	package:utils	typeref:typename:func(prompt prompt.Suggest) *[]prompt.Suggest
+GetNode	cmd/cmd.go	/^func (ii *ItemInfo) GetNode(cmd string) {$/;"	f	struct:cmd.ItemInfo
+GetNoded	cmd/cmd.go	/^func (ii *ItemInfo) GetNoded(id string) {$/;"	f	struct:cmd.ItemInfo
+GetRoot	cmd/cmd.go	/^func (ps *PromptStyle) GetRoot(ii *ItemInfo) {$/;"	f	struct:cmd.PromptStyle
+GetSugDec	cmd/cmd.go	/^func GetSugDec(sug *[]prompt.Suggest, text string) string {$/;"	f	package:cmd	typeref:typename:string
+GetSugInfo	utils/utils.go	/^func GetSugInfo() func(prompt prompt.Suggest, id string, tp int) *[]prompt.Suggest {$/;"	f	package:utils	typeref:typename:func(prompt prompt.Suggest, id string, tp int) *[]prompt.Suggest
+GmailSug	cmd/cmd.go	/^var GmailSug *[]prompt.Suggest$/;"	v	package:cmd	typeref:typename:*[]prompt.Suggest
+GoClue	README.md	/^# GoClue$/;"	c
+IdAllSug	cmd/cmd.go	/^var IdAllSug *[]prompt.Suggest$/;"	v	package:cmd	typeref:typename:*[]prompt.Suggest
+IddirSug	cmd/cmd.go	/^var IddirSug *[]prompt.Suggest$/;"	v	package:cmd	typeref:typename:*[]prompt.Suggest
+IdfileSug	cmd/cmd.go	/^var IdfileSug *[]prompt.Suggest$/;"	v	package:cmd	typeref:typename:*[]prompt.Suggest
+Ii	cmd/cmd.go	/^var Ii ItemInfo$/;"	v	package:cmd	typeref:typename:ItemInfo
+IncrFiles	utils/utils.go	/^func IncrFiles() func(path, id, file string) map[string]string {$/;"	f	package:utils	typeref:typename:func(path, id, file string) map[string]string
+Info	cmd/cmd.go	/^	Info     string$/;"	m	struct:cmd.PromptStyle	typeref:typename:string
+IsCommandAvailable	utils/utils.go	/^func IsCommandAvailable(name string) bool {$/;"	f	package:utils	typeref:typename:bool
+IsContain	utils/utils.go	/^func IsContain(items []prompt.Suggest, item string) bool {$/;"	f	package:utils	typeref:typename:bool
+IsDir	utils/utils.go	/^func IsDir(path string) bool {$/;"	f	package:utils	typeref:typename:bool
+IsFile	utils/utils.go	/^func IsFile(path string) bool {$/;"	f	package:utils	typeref:typename:bool
+ItemId	cmd/cmd.go	/^	ItemId       string$/;"	m	struct:cmd.ItemInfo	typeref:typename:string
+ItemInfo	cmd/cmd.go	/^type ItemInfo struct {$/;"	s	package:cmd
+Lo	cmd/cmd.go	/^func Lo() {$/;"	f	package:cmd
+LoadproSugg	utils/utils.go	/^func LoadproSugg(fileName string) *[]prompt.Suggest {$/;"	f	package:utils	typeref:typename:*[]prompt.Suggest
+Move	cmd/cmd.go	/^func (ii *ItemInfo) Move(cmd string) error {$/;"	f	struct:cmd.ItemInfo	typeref:typename:error
+Movefile	utils/utils.go	/^func Movefile(from, to string) bool {$/;"	f	package:utils	typeref:typename:bool
+Page	cmd/cmd.go	/^var Page map[int]string$/;"	v	package:cmd	typeref:typename:map[int]string
+Path	cmd/cmd.go	/^	Path         map[string]string$/;"	m	struct:cmd.ItemInfo	typeref:typename:map[string]string
+PathFileGenerate	cmd/cmd.go	/^func PathFileGenerate(path, level string) {$/;"	f	package:cmd
+PathGenerate	cmd/cmd.go	/^func PathGenerate(path, level string) {$/;"	f	package:cmd
+PathSug	cmd/cmd.go	/^var PathSug *[]prompt.Suggest$/;"	v	package:cmd	typeref:typename:*[]prompt.Suggest
+Pre	cmd/cmd.go	/^	Pre      string$/;"	m	struct:cmd.PromptStyle	typeref:typename:string
+PrintProgress	cmd/cmd.go	/^func (wc WriteCounter) PrintProgress() {$/;"	f	struct:cmd.WriteCounter
+PromptStyle	cmd/cmd.go	/^type PromptStyle struct {$/;"	s	package:cmd
+Ps	cmd/cmd.go	/^var Ps PromptStyle$/;"	v	package:cmd	typeref:typename:PromptStyle
+Rm	cmd/cmd.go	/^func (ii *ItemInfo) Rm(name string) error {$/;"	f	struct:cmd.ItemInfo	typeref:typename:error
+Rmd	cmd/cmd.go	/^func (ii *ItemInfo) Rmd(id string) error {$/;"	f	struct:cmd.ItemInfo	typeref:typename:error
+RoleSug	cmd/cmd.go	/^var RoleSug *[]prompt.Suggest$/;"	v	package:cmd	typeref:typename:*[]prompt.Suggest
+RootId	cmd/cmd.go	/^	RootId       string$/;"	m	struct:cmd.ItemInfo	typeref:typename:string
+SaveProperty	utils/utils.go	/^func SaveProperty(name string, v interface{}) {$/;"	f	package:utils
+SetDynamicPrefix	cmd/cmd.go	/^func (ps *PromptStyle) SetDynamicPrefix() (string, bool) {$/;"	f	struct:cmd.PromptStyle	typeref:typename:(string, bool)
+SetPrefix	cmd/cmd.go	/^func (ps *PromptStyle) SetPrefix(msgs string) {$/;"	f	struct:cmd.PromptStyle
+Share	cmd/cmd.go	/^func (ii *ItemInfo) Share(idorName, types, role, gmail, domain string, isByName bool) {$/;"	f	struct:cmd.ItemInfo
+ShowResult	cmd/cmd.go	/^func (ii *ItemInfo) ShowResult($/;"	f	struct:cmd.ItemInfo	typeref:typename:*drive.FileList
+Spinner	cmd/cmd.go	/^	Spinner *yacspin.Spinner$/;"	m	struct:cmd.WriteCounter	typeref:typename:*yacspin.Spinner
+StartSrv	utils/utils.go	/^func StartSrv(scope string) *drive.Service {$/;"	f	package:utils	typeref:typename:*drive.Service
+StartingDownload	cmd/cmd.go	/^func StartingDownload(id, path string) {$/;"	f	package:cmd
+Status	cmd/cmd.go	/^	Status   string$/;"	m	struct:cmd.PromptStyle	typeref:typename:string
+Total	cmd/cmd.go	/^	Total   uint64$/;"	m	struct:cmd.WriteCounter	typeref:typename:uint64
+Trash	cmd/cmd.go	/^func (ii *ItemInfo) Trash(name string) error {$/;"	f	struct:cmd.ItemInfo	typeref:typename:error
+Trashd	cmd/cmd.go	/^func (ii *ItemInfo) Trashd(id string) error {$/;"	f	struct:cmd.ItemInfo	typeref:typename:error
+TypesSug	cmd/cmd.go	/^var TypesSug *[]prompt.Suggest$/;"	v	package:cmd	typeref:typename:*[]prompt.Suggest
+Unique	utils/utils.go	/^func Unique(intSlice []int) []int {$/;"	f	package:utils	typeref:typename:[]int
+UniquePrompt	utils/utils.go	/^func UniquePrompt(pSlice []prompt.Suggest, tp int) []prompt.Suggest {$/;"	f	package:utils	typeref:typename:[]prompt.Suggest
+UpLod	cmd/cmd.go	/^func (ii *ItemInfo) UpLod(file, scope string) {$/;"	f	struct:cmd.ItemInfo
+Write	cmd/cmd.go	/^func (wc *WriteCounter) Write(p []byte) (int, error) {$/;"	f	struct:cmd.WriteCounter	typeref:typename:(int, error)
+WriteCounter	cmd/cmd.go	/^type WriteCounter struct {$/;"	s	package:cmd
+allCommands	goclue.go	/^var allCommands []command$/;"	v	package:main	typeref:typename:[]command
+allSug	goclue.go	/^var allSug *[]prompt.Suggest$/;"	v	package:main	typeref:typename:*[]prompt.Suggest
+breakDown	cmd/cmd.go	/^func breakDown(path string) []string {$/;"	f	package:cmd	typeref:typename:[]string
+cfg	cmd/cmd.go	/^var cfg *yacspin.Config$/;"	v	package:cmd	typeref:typename:*yacspin.Config
+cfg	goclue.go	/^var cfg *yacspin.Config$/;"	v	package:main	typeref:typename:*yacspin.Config
+clearMap	goclue.go	/^func clearMap() {$/;"	f	package:main
+cmd	cmd/cmd.go	/^package cmd$/;"	p
+cmtListSug	goclue.go	/^var cmtListSug *[]prompt.Suggest$/;"	v	package:main	typeref:typename:*[]prompt.Suggest
+colorRed	cmd/cmd.go	/^var colorRed string$/;"	v	package:cmd	typeref:typename:string
+colorRed	goclue.go	/^var colorRed string$/;"	v	package:main	typeref:typename:string
+colorYellow	cmd/cmd.go	/^var colorYellow string$/;"	v	package:cmd	typeref:typename:string
+command	goclue.go	/^type command struct {$/;"	s	package:main
+commands	cmd/cmd.go	/^var commands map[string]string$/;"	v	package:cmd	typeref:typename:map[string]string
+commentSug	goclue.go	/^var commentSug *[]prompt.Suggest$/;"	v	package:main	typeref:typename:*[]prompt.Suggest
+completer	goclue.go	/^func completer(in prompt.Document) []prompt.Suggest {$/;"	f	package:main	typeref:typename:[]prompt.Suggest
+counter	goclue.go	/^var counter int$/;"	v	package:main	typeref:typename:int
+createDownloader	cmd/cmd.go	/^func createDownloader(id int) chan<- string {$/;"	f	package:cmd	typeref:typename:chan<- string
+credentialsPath	goclue.go	/^var credentialsPath string$/;"	v	package:main	typeref:typename:string
+dirSug	goclue.go	/^var dirSug *[]prompt.Suggest$/;"	v	package:main	typeref:typename:*[]prompt.Suggest
+domainSug	goclue.go	/^var domainSug *[]prompt.Suggest$/;"	v	package:main	typeref:typename:*[]prompt.Suggest
+downld	cmd/cmd.go	/^func downld(id, target, filename, mimeType, path string) error {$/;"	f	package:cmd	typeref:typename:error
+downloader	cmd/cmd.go	/^func downloader(id int, c chan string) {$/;"	f	package:cmd
+executor	goclue.go	/^func executor(in string) {$/;"	f	package:main
+filesFromSrv	utils/utils.go	/^var filesFromSrv = IncrFiles()$/;"	v	package:utils
+generatorDownloader	cmd/cmd.go	/^func generatorDownloader(id, path string, out, stop chan string) {$/;"	f	package:cmd
+getClient	utils/utils.go	/^func getClient(config *oauth2.Config) *http.Client {$/;"	f	package:utils	typeref:typename:*http.Client
+getSugId	cmd/cmd.go	/^func (ii *ItemInfo) getSugId(sug *[]prompt.Suggest, text string) (string, error) {$/;"	f	struct:cmd.ItemInfo	typeref:typename:(string, error)
+getTokenFromWeb	utils/utils.go	/^func getTokenFromWeb(config *oauth2.Config) *oauth2.Token {$/;"	f	package:utils	typeref:typename:*oauth2.Token
+gmailSug	goclue.go	/^var gmailSug *[]prompt.Suggest$/;"	v	package:main	typeref:typename:*[]prompt.Suggest
+idallSug	goclue.go	/^var idallSug *[]prompt.Suggest$/;"	v	package:main	typeref:typename:*[]prompt.Suggest
+iddirSug	goclue.go	/^var iddirSug *[]prompt.Suggest$/;"	v	package:main	typeref:typename:*[]prompt.Suggest
+idfileSug	goclue.go	/^var idfileSug *[]prompt.Suggest$/;"	v	package:main	typeref:typename:*[]prompt.Suggest
+ii	goclue.go	/^var ii cmd.ItemInfo$/;"	v	package:main	typeref:typename:cmd.ItemInfo
+init	cmd/cmd.go	/^func init() {$/;"	f	package:cmd
+init	goclue.go	/^func init() {$/;"	f	package:main
+list	goclue.go	/^func list(cmds []string) {$/;"	f	package:main
+main	goclue.go	/^func main() {$/;"	f	package:main
+main	goclue.go	/^package main$/;"	p
+maxLength	cmd/cmd.go	/^	maxLength    int$/;"	m	struct:cmd.ItemInfo	typeref:typename:int
+name	goclue.go	/^	name  string$/;"	m	struct:main.command	typeref:typename:string
+next	goclue.go	/^func next(counter int) {$/;"	f	package:main
+page	goclue.go	/^var page map[int]string$/;"	v	package:main	typeref:typename:map[int]string
+pageToken	goclue.go	/^var pageToken string$/;"	v	package:main	typeref:typename:string
+param	goclue.go	/^	param string$/;"	m	struct:main.command	typeref:typename:string
+pathSug	goclue.go	/^var pathSug *[]prompt.Suggest$/;"	v	package:main	typeref:typename:*[]prompt.Suggest
+perPageSize	cmd/cmd.go	/^var perPageSize int64$/;"	v	package:cmd	typeref:typename:int64
+previous	goclue.go	/^func previous(counter int) {$/;"	f	package:main
+pthSep	cmd/cmd.go	/^var pthSep string$/;"	v	package:cmd	typeref:typename:string
+qString	cmd/cmd.go	/^var qString string$/;"	v	package:cmd	typeref:typename:string
+roleSug	goclue.go	/^var roleSug *[]prompt.Suggest$/;"	v	package:main	typeref:typename:*[]prompt.Suggest
+runCommand	goclue.go	/^func runCommand(commandStr string) {$/;"	f	package:main
+saveToken	utils/utils.go	/^func saveToken(path string, token *oauth2.Token) {$/;"	f	package:utils
+start	goclue.go	/^func start() {$/;"	f	package:main
+tip	goclue.go	/^	tip   string$/;"	m	struct:main.command	typeref:typename:string
+tokenFromFile	utils/utils.go	/^func tokenFromFile(file string) (*oauth2.Token, error) {$/;"	f	package:utils	typeref:typename:(*oauth2.Token, error)
+typesSug	goclue.go	/^var typesSug *[]prompt.Suggest$/;"	v	package:main	typeref:typename:*[]prompt.Suggest
+upload	cmd/cmd.go	/^func (ii *ItemInfo) upload(file, parentId string) (*drive.File, error) {$/;"	f	struct:cmd.ItemInfo	typeref:typename:(*drive.File, error)
+userQuery	goclue.go	/^func userQuery(param, cmd string) *drive.FileList {$/;"	f	package:main	typeref:typename:*drive.FileList
+utils	utils/utils.go	/^package utils$/;"	p
+visit	cmd/cmd.go	/^func visit(files *[]string, isDir bool) filepath.WalkFunc {$/;"	f	package:cmd	typeref:typename:filepath.WalkFunc
+waitting	goclue.go	/^func waitting() {$/;"	f	package:main
