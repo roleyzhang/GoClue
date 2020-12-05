@@ -260,7 +260,7 @@ func GetFilesAndFolders(id, path string) (files map[string]string, folders []str
 	pthSep := string(os.PathSeparator)
 	qString := "'" + id + "' in parents"
 	// glog.V(8).Info("GetFilesAndFolders qString: ", pthSep, qString)
-	item, err := StartSrv(drive.DriveScope).Files.List().
+	item, err := StartSrv(drive.DriveScope).Files.List().IncludeItemsFromAllDrives(true).IncludeTeamDriveItems(true).SupportsAllDrives(true).
 		Q(qString).PageSize(40). //"nextPageToken, files(id, name, mimeType, parents)")
 		Fields("nextPageToken, files(id, name, mimeType)").
 		Do()

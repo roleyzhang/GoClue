@@ -189,7 +189,7 @@ func (ii *ItemInfo) getSugID(sug *[]prompt.Suggest, text string) (string, error)
 	}
 	qString := "name='" + text + "'" + " and '" + ii.ItemID + "' in parents " + " and trashed=false"
 
-	file, err := utils.StartSrv(drive.DriveScope).Files.List().
+	file, err := utils.StartSrv(drive.DriveScope).Files.List().IncludeItemsFromAllDrives(true).IncludeTeamDriveItems(true).SupportsAllDrives(true).
 		Q(qString).
 		PageSize(2).
 		Fields("nextPageToken, files(id, name, mimeType, owners, createdTime)").
@@ -256,7 +256,7 @@ func (ps *PromptStyle) GetRoot(ii *ItemInfo) {
 	dirInfo := utils.GetSugInfo()
 	item, err := utils.StartSrv(drive.DriveScope).
 		// Files.Get(id).
-		Files.Get("root").
+		Files.Get("root").SupportsAllDrives(true).SupportsTeamDrives(true).
 		Fields("id, name, mimeType").
 		Do()
 	if err != nil {
@@ -333,7 +333,8 @@ func (ii *ItemInfo) ShowResult(
 	}
 
 	glog.V(5).Infoln("qString: ", qString)
-	r, err := utils.StartSrv(scope).Files.List().
+	r, err := utils.StartSrv(scope).Files.List().IncludeItemsFromAllDrives(true).IncludeTeamDriveItems(true).SupportsAllDrives(true).
+		// r, err := utils.StartSrv(scope).Files.List().IncludeItemsFromAllDrives(true).SupportsAllDrives(true).
 		Q(qString).
 		PageSize(40).
 		Fields("nextPageToken, files(id, name, mimeType, owners, parents, createdTime, permissions, sharingUser)").
@@ -368,10 +369,17 @@ func (ii *ItemInfo) ShowResult(
 				} else {
 					types = strings.Split(i.MimeType, "/")[1]
 				}
+				var onm string
+				if len(i.Owners) > 0 {
+					onm = i.Owners[0].DisplayName
+				} else {
+					onm = i.DriveId
+				}
 				t.AddLine(aurora.Bold(aurora.Cyan(name)),
 					aurora.Bold(aurora.Cyan(i.Id)),
 					aurora.Bold(aurora.Cyan(types)),
-					aurora.Bold(aurora.Cyan(i.Owners[0].DisplayName)),
+					// aurora.Bold(aurora.Cyan(i.Owners[0].DisplayName)),
+					aurora.Bold(aurora.Cyan(onm)),
 					aurora.Bold(aurora.Cyan(i.CreatedTime)))
 				s := prompt.Suggest{Text: i.Id, Description: i.Name}
 				s2 := prompt.Suggest{Text: i.Name, Description: i.Id}
@@ -400,10 +408,16 @@ func (ii *ItemInfo) ShowResult(
 						aurora.Cyan(i.CreatedTime))
 
 				} else {
+					var onm string
+					if len(i.Owners) > 0 {
+						onm = i.Owners[0].DisplayName
+					} else {
+						onm = i.DriveId
+					}
 					t.AddLine(aurora.Green(name),
 						aurora.Green(i.Id),
 						aurora.Green(types),
-						aurora.Green(i.Owners[0].DisplayName),
+						aurora.Green(onm),
 						aurora.Green(i.CreatedTime))
 				}
 				s := prompt.Suggest{Text: i.Id, Description: i.Name}
@@ -440,7 +454,7 @@ func (ii *ItemInfo) setSult(id, scope string) { // This should testing by change
 	}
 	qString := "'" + id + "' in parents and trashed=false"
 	glog.V(5).Infoln("qString: ", qString)
-	r, err := utils.StartSrv(scope).Files.List().
+	r, err := utils.StartSrv(scope).Files.List().IncludeItemsFromAllDrives(true).IncludeTeamDriveItems(true).SupportsAllDrives(true).
 		Q(qString).
 		PageSize(40).
 		Fields("nextPageToken, files(id, name, mimeType )").
@@ -1059,7 +1073,7 @@ func (ii *ItemInfo) GetNode(cmd string) {
 		id = iD
 	}
 	item, err := utils.StartSrv(drive.DriveScope).
-		Files.Get(id).
+		Files.Get(id).SupportsAllDrives(true).SupportsTeamDrives(true).
 		// Files.Get("root").
 		Fields("id, name, mimeType, parents, owners, createdTime").
 		Do()
@@ -1334,7 +1348,7 @@ func Downloadd(path, cmd string) error {
 	}
 	item, err := utils.StartSrv(drive.DriveScope).
 		// Files.Get(id).
-		Files.Get(cmd).
+		Files.Get(cmd).SupportsAllDrives(true).SupportsTeamDrives(true).
 		Fields("id, name, mimeType").
 		Do()
 	if err != nil {
@@ -1353,10 +1367,14 @@ func Downloadd(path, cmd string) error {
 // GetAllDriveItems ... get all items from folder
 func GetAllDriveItems(id, pageToken string, files *[]*drive.File) {
 
+	// rl := ratelimit.New(5) // per second 5 requests
+	// prev := time.Now()
 	qString := "'" + id + "' in parents and trashed=false"
-	r, err := utils.StartSrv(drive.DriveScope).Files.List().
+	// now := rl.Take()
+	r, err := utils.StartSrv(drive.DriveScope).Files.List().IncludeItemsFromAllDrives(true).IncludeTeamDriveItems(true).SupportsAllDrives(true).
 		Q(qString).
-		PageSize(perPageSize).
+		// PageSize(perPageSize).
+		PageSize(1000).
 		Fields("nextPageToken, files(id, name, mimeType)").
 		PageToken(pageToken).
 		Do()
@@ -1365,10 +1383,15 @@ func GetAllDriveItems(id, pageToken string, files *[]*drive.File) {
 	}
 	*files = append(*files, r.Files...)
 	glog.V(8).Info("files1 len:  ", len(*files))
-	if int64(len(r.Files)) == perPageSize {
+	// if int64(len(r.Files)) == perPageSize {
+	if int64(len(r.Files)) == 1000 {
+		// time.Sleep(time.Second)
 		pageToken := r.NextPageToken
 		GetAllDriveItems(id, pageToken, files)
 	}
+
+	// now.Sub(prev)
+	// prev = now
 	// return files
 }
 
@@ -1622,7 +1645,7 @@ func (ii *ItemInfo) UpLod(file, scope string) {
 				"' and mimeType = 'application/vnd.google-apps.folder' and '" +
 				ii.ItemID + "' in parents and trashed = false"
 			// glog.V(5).Infoln("qString: ", qString)
-			r, err := utils.StartSrv(scope).Files.List().
+			r, err := utils.StartSrv(scope).Files.List().IncludeItemsFromAllDrives(true).IncludeTeamDriveItems(true).SupportsAllDrives(true).
 				Q(qString).
 				PageSize(10).
 				Fields("nextPageToken, files(id, name, mimeType, owners, parents, createdTime)").
